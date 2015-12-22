@@ -1,6 +1,7 @@
 <?php
-$teams = get_users(array(
-    'meta_key' => $this->prefix . 'guardians',
+$teams = get_posts(array(
+    'post_type' => $this->prefix . '_team',
+    'meta_key' => '_team_members',
     'meta_value' => get_current_user_id()
 ));
 $invited = array();

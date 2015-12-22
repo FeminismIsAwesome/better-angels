@@ -1093,22 +1093,6 @@ esc_html__('Bouy is provided as free software, but sadly grocery stores do not o
         return $safe_input;
     }
 
-    private function printUsersForDataList () {
-        $args = array();
-        if (!current_user_can('list_users')) {
-            $args = array(
-                'meta_key' => $this->prefix . 'public_responder',
-                'meta_value' => 1
-            );
-        }
-        $users = get_users($args);
-        foreach ($users as $usr) {
-            if ($usr->ID !== get_current_user_id() && !$this->isGuardian($usr->ID, get_current_user_id())) {
-                print "<option value=\"{$usr->user_nicename}\">";
-            }
-        }
-    }
-
     /**
      * Get the guardians (resonse team members who receive alerts) for a given user.
      *
