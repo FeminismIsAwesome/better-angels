@@ -155,6 +155,42 @@ class WP_Buoy_Settings {
             WP_Buoy_Plugin::$prefix . '_settings',
             array(__CLASS__, 'renderOptionsPage')
         );
+
+        $hooks[] = add_submenu_page(
+            'edit.php?post_type=' . WP_Buoy_Plugin::$prefix . '_team',
+            __('Safety information', 'buoy'),
+            __('Safety information', 'buoy'),
+            'read',
+            WP_Buoy_Plugin::$prefix . '_safety_info',
+            array(__CLASS__, 'renderSafetyInfoPage')
+        );
+
+        // See https://developer.wordpress.org/reference/hooks/menu_order/
+        add_filter('custom_menu_order', '__return_true');
+        add_filter('menu_order', array(__CLASS__, 'reorderSubmenu'));
+    }
+
+    /**
+     * Ensure "Safety information" is last in "My Teams" submenu list.
+     *
+     * @global array $submenu
+     *
+     * @param array $menu_order The top-level admin menu order. Returned unchanged.
+     *
+     * @return array
+     */
+    public static function reorderSubmenu ($menu_order) {
+        global $submenu;
+        $find = 'edit.php?post_type=' . WP_Buoy_Plugin::$prefix . '_team';
+        if (isset($submenu[$find])) {
+            foreach ($submenu[$find] as $k => $v) {
+                if (in_array(WP_Buoy_Plugin::$prefix . '_safety_info', $v)) {
+                    unset($submenu[$find][$k]);
+                    $submenu[$find][9999] = $v;
+                }
+            }
+        }
+        return $menu_order;
     }
 
     public static function renderOptionsPage () {
@@ -162,6 +198,14 @@ class WP_Buoy_Settings {
             wp_die(__('You do not have sufficient permissions to access this page.', 'buoy'));
         }
         require 'pages/options.php';
+    }
+
+    public static function renderSafetyInfoPage () {
+        if (!current_user_can('read')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'better-angels'));
+        }
+        $options = self::get_instance();
+        print $options->get('safety_info'); // TODO: Can we harden this against XSS more?
     }
 
 }
