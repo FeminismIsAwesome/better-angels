@@ -49,6 +49,10 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         return array_unique(get_post_meta($this->post->ID, '_team_members'));
     }
 
+    public function is_member ($user_id) {
+        return in_array($user_id, $this->get_member_ids());
+    }
+
     public function add_member ($user_id) {
         add_post_meta($this->post->ID, '_team_members', $user_id, false);
 
@@ -63,6 +67,14 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
 
     public function remove_member ($user_id) {
         delete_post_meta($this->post->ID, '_team_members', $user_id);
+
+        /**
+         * Fires when a user is removed from a team.
+         *
+         * @param int $user_id
+         * @param WP_Buoy_Team $this
+         */
+        do_action(parent::$prefix . '_team_member_removed', $user_id, $this);
     }
 
     public function confirm_member ($user_id) {
@@ -72,6 +84,11 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     public function unconfirm_member ($user_id) {
         delete_post_meta($this->post->ID, "_member_{$user_id}_is_confirmed");
     }
+
+    public function is_confirmed ($user_id) {
+        return get_post_meta($this->post->ID, "_member_{$user_id}_is_confirmed", true);
+    }
+
 
     public static function register () {
         if (!class_exists('Buoy_Teams_List_Table')) { // for the admin UI
