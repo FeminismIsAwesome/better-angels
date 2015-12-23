@@ -10,34 +10,67 @@ if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
  * @license https://www.gnu.org/licenses/gpl-3.0.en.html
  * @package WordPress\Plugin\WP_Buoy_Plugin\Teams
  */
-class WP_Buoy_Team {
+class WP_Buoy_Team extends WP_Buoy_Plugin {
 
-    private $ID;
+    /**
+     * The team post.
+     *
+     * @var WP_Post
+     */
+    private $post;
+
+    /**
+     * The team owner.
+     *
+     * @var WP_user
+     */
+    private $author;
+
+    /**
+     * An array of WP_User objects representing the team membership.
+     *
+     * The members list include those who are not yet confirmed (pending).
+     *
+     * @var array
+     */
     private $members = array();
 
     public function __construct ($team_id) {
-        $this->ID = $team_id;
-        $this->members = array_map('get_userdata', array_unique(get_post_meta($team_id, '_team_members')));
+        $this->post = get_post($team_id);
+        $this->members = array_map('get_userdata', array_unique(get_post_meta($this->post->ID, '_team_members')));
+        $this->author = get_userdata($this->post->post_author);
+    }
+
+    public function __get ($name) {
+        return $this->$name;
     }
 
     public function get_member_ids () {
-        return array_unique(get_post_meta($post_id, '_team_members'));
+        return array_unique(get_post_meta($this->post->ID, '_team_members'));
     }
 
     public function add_member ($user_id) {
-        add_post_meta($this->ID, '_team_members', $user_id, false);
+        add_post_meta($this->post->ID, '_team_members', $user_id, false);
+
+        /**
+         * Fires when a user is added to a team.
+         *
+         * @param int $user_id
+         * @param WP_Buoy_Team $this
+         */
+        do_action(parent::$prefix . '_team_member_added', $user_id, $this);
     }
 
     public function remove_member ($user_id) {
-        delete_post_meta($this->ID, '_team_members', $user_id);
+        delete_post_meta($this->post->ID, '_team_members', $user_id);
     }
 
     public function confirm_member ($user_id) {
-        add_post_meta($this->ID, "_member_{$user_id}_is_confirmed", true, true);
+        add_post_meta($this->post->ID, "_member_{$user_id}_is_confirmed", true, true);
     }
 
     public function unconfirm_member ($user_id) {
-        delete_post_meta($this->ID, "_member_{$user_id}_is_confirmed");
+        delete_post_meta($this->post->ID, "_member_{$user_id}_is_confirmed");
     }
 
     public static function register () {
@@ -45,7 +78,7 @@ class WP_Buoy_Team {
             require plugin_dir_path(__FILE__) . 'class-buoy-teams-list-table.php';
         }
 
-        register_post_type(WP_Buoy_Plugin::$prefix . '_team', array(
+        register_post_type(parent::$prefix . '_team', array(
             'label' => __('My Teams', 'buoy'),
             'labels' => array(
                 'add_new_item' => __('Add New Team', 'buoy'),
@@ -55,7 +88,7 @@ class WP_Buoy_Team {
             'description' => __('Groups of crisis responders', 'buoy'),
             'public' => false,
             'show_ui' => true,
-            'capability_type' => WP_Buoy_plugin::$prefix . '_team',
+            'capability_type' => parent::$prefix . '_team',
             'map_meta_cap' => true,
             'hierarchical' => false,
             'supports' => array(
@@ -80,7 +113,7 @@ class WP_Buoy_Team {
 
         add_action('pre_get_posts', array(__CLASS__, 'filterTeamPostsList'));
 
-        add_action('save_post_' . WP_Buoy_Plugin::$prefix . '_team', array(__CLASS__, 'saveTeam'));
+        add_action('save_post_' . parent::$prefix . '_team', array(__CLASS__, 'saveTeam'));
 
         add_action('deleted_post_meta', array(__CLASS__, 'deletedPostMeta'), 10, 4);
 
@@ -112,21 +145,21 @@ class WP_Buoy_Team {
     }
 
     public static function renderAddTeamMemberMetaBox ($post) {
-        wp_nonce_field(WP_Buoy_Plugin::$prefix . '_add_team_member', WP_Buoy_Plugin::$prefix . '_add_team_member_nonce');
+        wp_nonce_field(parent::$prefix . '_add_team_member', parent::$prefix . '_add_team_member_nonce');
         require 'pages/add-team-member-meta-box.php';
     }
 
     public static function renderCurrentTeamMetaBox ($post) {
-        wp_nonce_field(WP_Buoy_Plugin::$prefix . '_choose_team', WP_Buoy_Plugin::$prefix . '_choose_team_nonce');
+        wp_nonce_field(parent::$prefix . '_choose_team', parent::$prefix . '_choose_team_nonce');
         require 'pages/current-team-meta-box.php';
     }
 
     public static function renderTeamMembershipPage () {
-        $team_table = new Buoy_Teams_List_Table();
+        $team_table = new Buoy_Teams_List_Table(parent::$prefix . '_team');
         $team_table->prepare_items();
         print '<div class="wrap">';
         print '<form'
-            . ' action="' . admin_url('edit.php?post_type=' . WP_Buoy_Plugin::$prefix . '_team&page=' . WP_Buoy_Plugin::$prefix . '_team_membership') . '"'
+            . ' action="' . admin_url('edit.php?post_type=' . parent::$prefix . '_team&page=' . parent::$prefix . '_team_membership') . '"'
             . ' method="post">';
         print '<h1>' . esc_html__('Team membership', 'buoy') . '</h1>';
         $team_table->display();
@@ -135,7 +168,7 @@ class WP_Buoy_Team {
     }
 
     public static function processTeamTableActions () {
-        $table = new Buoy_Teams_List_Table();
+        $table = new Buoy_Teams_List_Table(parent::$prefix . '_team');
         $teams = array();
         if (isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'single-' . $table->_args['plural'])) {
                 $teams[] = $_GET['team_id'];
@@ -163,8 +196,8 @@ class WP_Buoy_Team {
     public static function saveTeam ($post_id) {
         $team = new self($post_id);
         // Remove any team members indicated.
-        if (isset($_POST[WP_Buoy_Plugin::$prefix . '_choose_team_nonce']) && wp_verify_nonce($_POST[WP_Buoy_Plugin::$prefix . '_choose_team_nonce'], WP_Buoy_Plugin::$prefix . '_choose_team')) {
-            if (is_array($_POST['remove_team_members'])) {
+        if (isset($_POST[parent::$prefix . '_choose_team_nonce']) && wp_verify_nonce($_POST[parent::$prefix . '_choose_team_nonce'], parent::$prefix . '_choose_team')) {
+            if (isset($_POST['remove_team_members'])) {
                 foreach ($_POST['remove_team_members'] as $id) {
                     $team->remove_member($id);
                 }
@@ -172,8 +205,8 @@ class WP_Buoy_Team {
         }
 
         // Add a new team member
-        if (isset($_POST[WP_Buoy_Plugin::$prefix . '_add_team_member_nonce']) && wp_verify_nonce($_POST[WP_Buoy_Plugin::$prefix . '_add_team_member_nonce'], WP_Buoy_Plugin::$prefix . '_add_team_member')) {
-            $user_id = username_exists($_REQUEST[WP_Buoy_Plugin::$prefix . '_add_team_member']);
+        if (isset($_POST[parent::$prefix . '_add_team_member_nonce']) && wp_verify_nonce($_POST[parent::$prefix . '_add_team_member_nonce'], parent::$prefix . '_add_team_member')) {
+            $user_id = username_exists($_REQUEST[parent::$prefix . '_add_team_member']);
             if (false !== $user_id && !in_array($user_id, $team->get_member_ids())) {
                 $team->add_member($user_id);
             }
@@ -197,11 +230,11 @@ class WP_Buoy_Team {
     public static function registerAdminMenu () {
         $hooks = array();
         $hooks[] = add_submenu_page(
-            'edit.php?post_type=' . WP_Buoy_Plugin::$prefix . '_team',
+            'edit.php?post_type=' . parent::$prefix . '_team',
             __('Team membership', 'buoy'),
             __('Team membership', 'buoy'),
             'read',
-            WP_Buoy_Plugin::$prefix . '_team_membership',
+            parent::$prefix . '_team_membership',
             array(__CLASS__, 'renderTeamMembershipPage')
         );
     }
@@ -220,11 +253,11 @@ class WP_Buoy_Team {
      * @return array $caps
      */
     public static function filterCaps ($caps) {
-        $caps['edit_'             . WP_Buoy_Plugin::$prefix . '_teams'] = true;
-        $caps['delete_'           . WP_Buoy_Plugin::$prefix . '_teams'] = true;
-        $caps['publish_'          . WP_Buoy_Plugin::$prefix . '_teams'] = true;
-        $caps['edit_published_'   . WP_Buoy_Plugin::$prefix . '_teams'] = true;
-        $caps['delete_published_' . WP_Buoy_Plugin::$prefix . '_teams'] = true;
+        $caps['edit_'             . parent::$prefix . '_teams'] = true;
+        $caps['delete_'           . parent::$prefix . '_teams'] = true;
+        $caps['publish_'          . parent::$prefix . '_teams'] = true;
+        $caps['edit_published_'   . parent::$prefix . '_teams'] = true;
+        $caps['delete_published_' . parent::$prefix . '_teams'] = true;
         return $caps;
     }
 
@@ -237,7 +270,7 @@ class WP_Buoy_Team {
     public static function filterTeamPostsList ($query) {
         if (is_admin()) {
             $screen = get_current_screen();
-            if ('edit-' . WP_Buoy_Plugin::$prefix .'_team' === $screen->id && current_user_can('edit_' . WP_Buoy_Plugin::$prefix . '_teams')) {
+            if ('edit-' . parent::$prefix .'_team' === $screen->id && current_user_can('edit_' . parent::$prefix . '_teams')) {
                 $query->set('author', get_current_user_id());
                 add_filter('views_' . $screen->id, array(__CLASS__, 'removeTeamPostFilterLinks'));
                 add_filter('post_row_actions', array(__CLASS__, 'removeTeamPostActionRowLinks'));

@@ -53,9 +53,11 @@ class WP_Buoy_Plugin {
     public static function initialize () {
         require_once 'class-buoy-settings.php';
         require_once 'class-buoy-team.php';
+        require_once 'class-buoy-notification.php';
 
         WP_Buoy_Settings::register();
         WP_Buoy_Team::register();
+        WP_Buoy_Notification::register();
     }
 
     /**

@@ -11,7 +11,23 @@ if (!class_exists('WP_List_Table')) {
  */
 class Buoy_Teams_List_Table extends WP_List_Table {
 
-    public function __construct () {
+    /**
+     * The post type being listed.
+     *
+     * @access private
+     *
+     * @var string $post_type
+     */
+    private $post_type;
+
+    /**
+     * Constructor.
+     *
+     * @param string $post_type The post type that this table lists.
+     */
+    public function __construct ($post_type) {
+        $this->post_type = $post_type;
+
         parent::__construct(array(
             'singular' => 'team',
             'plural' => 'teams'
@@ -32,7 +48,7 @@ class Buoy_Teams_List_Table extends WP_List_Table {
     /**
      * Gets the items (teams) from the WordPress database.
      *
-     * @uses WP_Buoy_Plugin::$prefix
+     * @uses Buoy_Teams_List_table::$post_type
      *
      * @return array
      */
@@ -42,7 +58,7 @@ class Buoy_Teams_List_Table extends WP_List_Table {
         $user_id = get_current_user_id();
 
         $posts = get_posts(array(
-            'post_type' => WP_Buoy_Plugin::$prefix . '_team',
+            'post_type' => $this->post_type,
             'meta_key' => '_team_members',
             'meta_value' => $user_id
         ));
