@@ -69,6 +69,11 @@ class WP_Buoy_Team {
             'menu_icon' => plugins_url('img/icon-bw-life-preserver.svg', __FILE__)
         ));
 
+        wp_enqueue_style(
+            __CLASS__ . '_style',
+            plugins_url('admin-teams.css', __FILE__)
+        );
+
         add_action('current_screen', array(__CLASS__, 'processTeamTableActions'));
 
         add_action('admin_menu', array(__CLASS__, 'registerAdminMenu'));
@@ -200,7 +205,6 @@ class WP_Buoy_Team {
             array(__CLASS__, 'renderTeamMembershipPage')
         );
     }
-
 
     /**
      * Dynamically configures user capabilities.

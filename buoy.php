@@ -28,12 +28,22 @@ class WP_Buoy_Plugin {
      */
     public static $prefix = 'buoy';
 
+    /**
+     * Instance of WP_Buoy_Settings used to handle plugin options.
+     *
+     * @var WP_Buoy_Settings
+     */
+    public $options;
+
     public function __construct () {
     }
 
     public static function register () {
         add_action('plugins_loaded', array(__CLASS__, 'registerL10n'));
         add_action('init', array(__CLASS__, 'initialize'));
+
+        register_activation_hook(__FILE__, array(__CLASS__, 'activate'));
+        register_deactivation_hook(__FILE__, array(__CLASS__, 'deactivate'));
     }
 
     public static function registerL10n () {
@@ -41,8 +51,30 @@ class WP_Buoy_Plugin {
     }
 
     public static function initialize () {
+        require_once 'class-buoy-settings.php';
         require_once 'class-buoy-team.php';
+
+        WP_Buoy_Settings::register();
         WP_Buoy_Team::register();
+    }
+
+    /**
+     * Method to run when the plugin is activated by a user in the
+     * WordPress Dashboard admin screen.
+     *
+     * @uses WP_Buoy_Settings::activate()
+     */
+    public static function activate () {
+        require_once 'class-buoy-settings.php';
+        $options = WP_Buoy_Settings::get_instance();
+        $options->activate();
+    }
+
+    /**
+     * Method to run when the plugin is deactivated by a user in the
+     * WordPress Dashboard admin screen.
+     */
+    public static function deactivate () {
     }
 
 }
