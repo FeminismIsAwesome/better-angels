@@ -19,6 +19,13 @@ class WP_Buoy_Settings {
     private static $instance;
 
     /**
+     * Database meta key name.
+     *
+     * @var string
+     */
+    private $meta_key;
+
+    /**
      * Current settings.
      *
      * @var array
@@ -32,9 +39,13 @@ class WP_Buoy_Settings {
      */
     private $default;
 
+    /**
+     * @return WP_Buoy_Settings
+     */
     private function __construct () {
-        $this->options = $this->get_options();
-        $this->default = array(
+        $this->meta_key = WP_Buoy_Plugin::$prefix . '_settings';
+        $this->options  = $this->get_options();
+        $this->default  = array(
             'alert_ttl_num' => 2,
             'alert_ttl_multiplier' => DAY_IN_SECONDS,
             'safety_info' => file_get_contents(plugin_dir_path(__FILE__) . 'includes/default-safety-information.html'),
@@ -42,10 +53,18 @@ class WP_Buoy_Settings {
             'delete_old_incident_media' => false,
             'debug' => false
         );
+        return $this;
     }
 
+    /**
+     * @return mixed
+     */
     private function get_options () {
-        return get_option(WP_Buoy_Plugin::$prefix . '_settings', null);
+        return get_option($this->meta_key, null);
+    }
+
+    public function __get ($name) {
+        return $this->$name;
     }
 
     /**
@@ -53,6 +72,8 @@ class WP_Buoy_Settings {
      * is activated by a user without overwriting existing values.
      * 
      * @used-by WP_Buoy_Plugin::activate()
+     *
+     * @return void
      */
     public function activate () {
         foreach ($this->default as $k => $v) {
@@ -61,6 +82,9 @@ class WP_Buoy_Settings {
         $this->save();
     }
 
+    /**
+     * @return void
+     */
     public static function register () {
         add_action('admin_init', array(__CLASS__, 'registerSettings'));
         add_action('admin_menu', array(__CLASS__, 'registerAdminMenu'));
@@ -68,6 +92,8 @@ class WP_Buoy_Settings {
 
     /**
      * Gets the instance of this object.
+     *
+     * @return WP_Buoy_Settings
      */
     public static function get_instance () {
         if (null === self::$instance) {
@@ -80,20 +106,35 @@ class WP_Buoy_Settings {
         return ($this->has($key)) ? $this->options[$key] : $default;
     }
 
+    /**
+     * @return WP_Buoy_Settings
+     */
     public function set ($key, $value) {
         $this->options[$key] = $value;
+        return $this;
     }
 
+    /**
+     * @return bool
+     */
     public function has ($key) {
         return isset($this->options[$key]);
     }
 
+    /**
+     * @return WP_Buoy_Settings
+     */
     public function save () {
-        update_option(WP_Buoy_Plugin::$prefix . '_settings', $this->options);
+        update_option($this->meta_key, $this->options);
+        return $this;
     }
 
+    /**
+     * @return WP_Buoy_Settings
+     */
     public function delete ($key) {
         unset($this->options[$key]);
+        return $this;
     }
 
     /**
@@ -103,6 +144,8 @@ class WP_Buoy_Settings {
      * to record all the plugin's settings.
      *
      * @see https://codex.wordpress.org/Settings_API
+     *
+     * @return void
      */
     public static function registerSettings () {
         register_setting(
@@ -116,6 +159,8 @@ class WP_Buoy_Settings {
      * WordPress validation callback for the Settings API hook.
      *
      * @see https://codex.wordpress.org/Settings_API
+     *
+     * @return array
      */
     public function validateSettings ($input) {
         // TODO: Refactor this, maybe can do better since the array
@@ -145,6 +190,11 @@ class WP_Buoy_Settings {
         return $safe_input;
     }
 
+    /**
+     * @see https://developer.wordpress.org/reference/hooks/menu_order/
+     *
+     * @return void
+     */
     public static function registerAdminMenu () {
         $hooks = array();
 
@@ -165,7 +215,6 @@ class WP_Buoy_Settings {
             array(__CLASS__, 'renderSafetyInfoPage')
         );
 
-        // See https://developer.wordpress.org/reference/hooks/menu_order/
         add_filter('custom_menu_order', '__return_true');
         add_filter('menu_order', array(__CLASS__, 'reorderSubmenu'));
     }
@@ -193,6 +242,9 @@ class WP_Buoy_Settings {
         return $menu_order;
     }
 
+    /**
+     * @return void
+     */
     public static function renderOptionsPage () {
         if (!current_user_can('manage_options')) {
             wp_die(__('You do not have sufficient permissions to access this page.', 'buoy'));
@@ -200,6 +252,9 @@ class WP_Buoy_Settings {
         require 'pages/options.php';
     }
 
+    /**
+     * @return void
+     */
     public static function renderSafetyInfoPage () {
         if (!current_user_can('read')) {
             wp_die(__('You do not have sufficient permissions to access this page.', 'better-angels'));

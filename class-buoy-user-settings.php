@@ -126,35 +126,33 @@ class WP_Buoy_User_Settings {
     /**
      * Saves the current options to the database in user meta fields.
      *
+     * If an option doesn't exist in the $options array, after it was
+     * deleted with WP_Buoy_User_Settings::delete(), for instance, it
+     * will be deleted from the database, too.
+     *
      * Multiple user meta fields are used so that the WP database is
      * more easily queryable to allow, for example, finding all users
      * whose phone company is Verizon. This aids in debugging issues.
-     *
-     * Returns the current instance for chaining.
      *
      * @uses WP_Buoy_User_Settings::$options
      *
      * @return WP_Buoy_User_Settings
      */
     public function save () {
-        foreach ($this->options as $k => $v) {
-            update_user_meta($this->user->ID, WP_Buoy_Plugin::$prefix . '_' . $k, $v);
+        foreach ($this->default as $k => $v) {
+            if ($this->has($k)) {
+                update_user_meta($this->user->ID, WP_Buoy_Plugin::$prefix . '_' . $k, $this->get($k));
+            } else {
+                delete_user_meta($this->user->ID, WP_Buoy_Plugin::$prefix . '_' . $k);
+            }
         }
         return $this;
     }
 
     /**
-     * Removes 
+     * Removes an option from the current instance's $options array.
      *
-     * Returns the current instance for chaining, so you can do stuff
-     * like removing all user options upon plugin uninstallation:
-     *
-     * ```php
-     * $useropts = new WP_Buoy_User_Settings();
-     * foreach ($useropts->options as $k => $v) {
-     *     $useropts->delete($k)->save();
-     * }
-     * ```
+     * Returns the current instance for chaining.
      *
      * @return WP_Buoy_User_Settings
      */
