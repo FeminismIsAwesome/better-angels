@@ -107,6 +107,46 @@ class WP_Buoy_Plugin {
     public static function deactivate () {
     }
 
+    /**
+     * Loads the appropriate document from the localized `help` folder
+     * and inserts it as a help tab on the current screen.
+     *
+     * @todo Should the help system be moved to its own class?
+     *
+     * @uses WP_Screen::add_help_tab()
+     * @uses Parsedown::text()
+     *
+     * @return void
+     */
+    public static function addHelpTab () {
+        $screen = get_current_screen();
+
+        if (!class_exists('Parsedown')) {
+            require_once plugin_dir_path(__FILE__) . 'includes/parsedown/Parsedown.php';
+        }
+
+        $Parsedown = new Parsedown();
+        $files = glob(plugin_dir_path(__FILE__) . 'help/' . get_locale() . "/{$screen->action}{$screen->id}*.md");
+        $num = 1;
+        foreach ($files as $file) {
+            $lines = @file($file);
+            if ($lines) {
+                $args = array(
+                    'title' => sanitize_text_field($Parsedown->text(array_shift($lines))),
+                    'id' => esc_attr(WP_Buoy_Plugin::$prefix . "-{$screen->id}-help-tab-$num"),
+                    'content' => $Parsedown->text(implode("\n", $lines))
+                );
+                $m = array();
+                preg_match('/-([0-9]+)\.md$/i', $file, $m);
+                if ($m) {
+                    $args['priority'] = absint($m[1]);
+                }
+                $screen->add_help_tab($args);
+            }
+            $num++;
+        }
+    }
+
 }
 
 WP_Buoy_Plugin::register();

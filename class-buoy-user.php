@@ -20,9 +20,12 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
     /**
      * Registers user-related WordPress hooks.
      *
+     * @uses WP_Buoy_Plugin::addHelpTab()
+     *
      * @return void
      */
     public static function register () {
+        add_action('load-profile.php', array('WP_Buoy_Plugin', 'addHelpTab'));
         add_action('show_user_profile', array(__CLASS__, 'renderProfile'));
         add_action('personal_options_update', array(__CLASS__, 'saveProfile'));
     }

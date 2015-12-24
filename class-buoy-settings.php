@@ -191,6 +191,8 @@ class WP_Buoy_Settings {
     }
 
     /**
+     * @uses WP_Buoy_Plugin::addHelpTab()
+     *
      * @see https://developer.wordpress.org/reference/hooks/menu_order/
      *
      * @return void
@@ -214,6 +216,10 @@ class WP_Buoy_Settings {
             WP_Buoy_Plugin::$prefix . '_safety_info',
             array(__CLASS__, 'renderSafetyInfoPage')
         );
+
+        foreach ($hooks as $hook) {
+            add_action('load-' . $hook, array('WP_Buoy_Plugin', 'addHelpTab'));
+        }
 
         add_filter('custom_menu_order', '__return_true');
         add_filter('menu_order', array(__CLASS__, 'reorderSubmenu'));

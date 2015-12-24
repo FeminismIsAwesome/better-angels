@@ -118,6 +118,8 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
             'can_export' => false,
             'menu_icon' => plugins_url('img/icon-bw-life-preserver.svg', __FILE__)
         ));
+        add_action('load-post-new.php', array('WP_Buoy_Plugin', 'addHelpTab'));
+        add_action('load-edit.php', array('WP_Buoy_Plugin', 'addHelpTab'));
 
         wp_enqueue_style(
             __CLASS__ . '_style',
@@ -246,6 +248,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
 
     public static function registerAdminMenu () {
         $hooks = array();
+
         $hooks[] = add_submenu_page(
             'edit.php?post_type=' . parent::$prefix . '_team',
             __('Team membership', 'buoy'),
@@ -254,6 +257,10 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
             parent::$prefix . '_team_membership',
             array(__CLASS__, 'renderTeamMembershipPage')
         );
+
+        foreach ($hooks as $hook) {
+            add_action('load-' . $hook, array('WP_Buoy_Plugin', 'addHelpTab'));
+        }
     }
 
     /**
