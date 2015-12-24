@@ -26,11 +26,9 @@ class BetterAngelsPlugin {
     public function __construct () {
         $this->Error = new WP_Error();
 
-        add_action('plugins_loaded', array($this, 'registerL10n'));
         add_action('init', array($this, 'registerCustomPostTypes'));
         add_action('admin_init', array($this, 'registerSettings'));
         add_action('admin_init', array($this, 'configureCron'));
-        add_action('current_screen', array($this, 'registerContextualHelp'));
         add_action('current_screen', array($this, 'maybeRedirect'));
         add_action('send_headers', array($this, 'redirectShortUrl'));
         add_action('wp_before_admin_bar_render', array($this, 'addIncidentMenu'));
@@ -45,17 +43,12 @@ class BetterAngelsPlugin {
         add_action('wp_ajax_' . $this->prefix . 'update-location', array($this, 'handleLocationUpdate'));
         add_action('wp_ajax_' . $this->prefix . 'upload-media', array($this, 'handleMediaUpload'));
         add_action('wp_ajax_' . $this->prefix . 'dismiss-installer', array($this, 'handleDismissInstaller'));
-        add_action('show_user_profile', array($this, 'addProfileFields'));
-        add_action('personal_options_update', array($this, 'updateProfileFields'));
 
         add_action('publish_' . str_replace('-', '_', $this->prefix) . 'alert', array($this, 'publishAlert'));
 
         add_action('update_option_' . $this->prefix . 'settings', array($this, 'updatedSettings'), 10, 2);
-        add_action('added_user_meta', array($this, 'addedUserMeta'), 10, 4);
 
         add_action($this->prefix . 'delete_old_alerts', array($this, 'deleteOldAlerts'));
-
-        add_filter('user_contactmethods', array($this, 'addContactInfoFields'));
 
         register_activation_hook(__FILE__, array($this, 'activate'));
         register_deactivation_hook(__FILE__, array($this, 'deactivate'));
@@ -193,39 +186,6 @@ class BetterAngelsPlugin {
         return '[' . __CLASS__ . ']: ' . $message;
     }
 
-    public function registerL10n () {
-        load_plugin_textdomain('better-angels', false, dirname(plugin_basename(__FILE__)) . '/languages/');
-    }
-
-    public function registerCustomPostTypes () {
-        register_post_type(str_replace('-', '_', $this->prefix) . 'alert', array(
-            'label' => __('Incidents', 'better-angels'),
-            'description' => __('A call for help.', 'better-angels'),
-            'public' => false,
-            'show_ui' => false,
-            // TODO: Do we need to/should we use custom capabilities?
-            //       Or will the default "post" types be sufficient?
-            //'capability_type' => str_replace('-', '_', $this->prefix)
-            'hierarchical' => false,
-            'supports' => array(
-                'title',
-                'author',
-                'custom-fields'
-            ),
-            'has_archive' => false,
-            'rewrite' => false,
-            'can_export' => false
-        ));
-    }
-
-    public function registerSettings () {
-        register_setting(
-            $this->prefix . 'settings',
-            $this->prefix . 'settings',
-            array($this, 'validateSettings')
-        );
-    }
-
     public function configureCron () {
         $options = get_option($this->prefix . 'settings');
         $path_to_wp_cron = ABSPATH . 'wp-cron.php';
@@ -285,41 +245,6 @@ class BetterAngelsPlugin {
     public function registerAdminMenu () {
         $hooks = array();
 
-        $hooks[] = add_options_page(
-            __('Buoy Settings', 'better-angels'),
-            __('Buoy', 'better-angels'),
-            'manage_options',
-            $this->prefix . 'settings',
-            array($this, 'renderOptionsPage')
-        );
-
-        $hooks[] = add_menu_page(
-            __('Emergency Team', 'better-angels'),
-            __('My Team', 'better-angels'),
-            'read',
-            $this->prefix . 'choose-angels',
-            array($this, 'renderChooseAngelsPage'),
-            plugins_url('img/icon-bw-life-preserver.svg', __FILE__)
-        );
-
-        $hooks[] = add_submenu_page(
-            $this->prefix . 'choose-angels',
-            __('Team membership', 'better-angels'),
-            __('Team membership', 'better-angels'),
-            'read',
-            $this->prefix . 'confirm-guardianship',
-            array($this, 'renderTeamMembershipPage')
-        );
-
-        $hooks[] = add_submenu_page(
-            $this->prefix . 'choose-angels',
-            __('Safety information', 'better-angels'),
-            __('Safety information', 'better-angels'),
-            'read',
-            $this->prefix . 'safety-info',
-            array($this, 'renderSafetyInfoPage')
-        );
-
         $hooks[] = add_submenu_page(
             null,
             __('Respond to Alert', 'better-angels'),
@@ -338,33 +263,6 @@ class BetterAngelsPlugin {
             array($this, 'renderIncidentChatPage')
         );
 
-        $hooks[] = $hook = add_dashboard_page(
-            __('Activate Alert', 'better-angels'),
-            __('Activate Alert', 'better-angels'),
-            'read', // give access to users of the Subscribers role
-            $this->prefix . 'activate-alert',
-            array($this, 'renderActivateAlertPage')
-        );
-        add_action('load-' . $hook, array($this, 'addInstallerScripts'));
-
-        foreach ($hooks as $hook) {
-            add_action('load-' . $hook, array($this, 'addHelpTab'));
-        }
-    }
-
-    public function addInstallerScripts () {
-        $x = get_user_meta(get_current_user_id(), $this->prefix . 'installer-dismissed', true);
-        if (empty($x)) {
-            wp_enqueue_script(
-                $this->prefix . 'install-webapp',
-                plugins_url('includes/install-webapp.js', __FILE__)
-            );
-
-            wp_enqueue_style(
-                $this->prefix . 'install-webapp',
-                plugins_url('includes/install-webapp.css', __FILE__)
-            );
-        }
     }
 
     public function maybeRedirect () {
@@ -404,33 +302,6 @@ class BetterAngelsPlugin {
         }
     }
 
-    /**
-     * Translate user interface strings used in JavaScript.
-     *
-     * @return array An array of translated strings suitable for wp_localize_script().
-     */
-    private function getTranslations () {
-        $locale_parts = explode('_', get_locale());
-        return array(
-            'ietf_language_tag' => array_shift($locale_parts),
-            'i18n_install_btn_title' => __('Install Buoy', 'better-angels'),
-            'i18n_install_btn_content' => __('Tap this button to install Buoy in your device, then choose "Add to home screen" from the menu.', 'better-angels'),
-            'i18n_dismiss' => __('Dismiss', 'better-angels'),
-            'i18n_map_title' => __('Incident Map', 'better-angels'),
-            'i18n_hide_map' => __('Hide Map', 'better-angels'),
-            'i18n_show_map' => __('Show Map', 'better-angels'),
-            'i18n_crisis_location' => __('Location of emergency alert signal', 'better-angels'),
-            'i18n_missing_crisis_location' => __('Emergency alert signal could not be pinpointed on a map.', 'better-angels'),
-            'i18n_my_location' => __('My location', 'better-angels'),
-            'i18n_directions' => __('Directions to here', 'better-angels'),
-            'i18n_call' => __('Call', 'better-angels'),
-            'i18n_responding_to_alert' => __('Responding to alert', 'better-angels'),
-            'i18n_schedule_alert' => __('Schedule alert', 'better-angels'),
-            'i18n_scheduling_alert' => __('Scheduling alert', 'better-angels'),
-            'incident_nonce' => wp_create_nonce($this->prefix . 'incident-nonce')
-        );
-    }
-
     public function enqueueAdminScripts ($hook) {
         // Always enqueue this script to ensure iOS Webapp-style launches
         // remain within the webapp capable shell. Otherwise, navigating
@@ -443,56 +314,10 @@ class BetterAngelsPlugin {
             plugins_url('includes/stay-standalone.js', __FILE__)
         );
 
-        $plugin_data = get_plugin_data(__FILE__);
-        wp_enqueue_style(
-            $this->prefix . 'style',
-            plugins_url('style.css', __FILE__),
-            false,
-            $plugin_data['Version']
-        );
-        wp_register_script(
-            $this->prefix . 'script',
-            plugins_url(str_replace('_', '', $this->prefix) . '.js', __FILE__),
-            false,
-            $plugin_data['Version']
-        );
-        wp_localize_script($this->prefix . 'script', str_replace('-', '_', $this->prefix) . 'vars', $this->getTranslations());
-        wp_enqueue_script($this->prefix . 'script');
-
         $to_hook = array( // list of pages where Bootstrap CSS+JS, certain jQuery is needed
             'dashboard_page_' . $this->prefix . 'activate-alert',
             'dashboard_page_' . $this->prefix . 'incident-chat'
         );
-        if ($this->isAppPage($hook, $to_hook)) {
-            wp_enqueue_style(
-                $this->prefix . 'bootstrap',
-                'https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css'
-            );
-            wp_enqueue_script(
-                $this->prefix . 'bootstrap',
-                'https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js',
-                false,
-                null,
-                true
-            );
-
-            wp_enqueue_style(
-                'jquery-datetime-picker',
-                plugins_url('includes/jquery.datetimepicker.css', __FILE__)
-            );
-            wp_enqueue_script(
-                'jquery-datetime-picker',
-                plugins_url('includes/jquery.datetimepicker.full.min.js', __FILE__),
-                array('jquery'),
-                null,
-                true
-            );
-
-            wp_enqueue_style(
-                $this->prefix . 'pulse-loader',
-                plugins_url('includes/pulse-loader.css', __FILE__)
-            );
-        }
     }
 
     /**
@@ -520,35 +345,6 @@ class BetterAngelsPlugin {
             }
         }
         return false;
-    }
-
-    public function getSmsEmailGatewayDomain($provider) {
-        $provider_domains = array(
-            'AT&T' => '@txt.att.net',
-            'Alltel' => '@message.alltel.com',
-            'Boost Mobile' => '@myboostmobile.com',
-            'Cricket' => '@sms.mycricket.com',
-            'Metro PCS' => '@mymetropcs.com',
-            'Nextel' => '@messaging.nextel.com',
-            'Ptel' => '@ptel.com',
-            'Qwest' => '@qwestmp.com',
-            'Sprint' => array(
-                '@messaging.sprintpcs.com',
-                '@pm.sprint.com'
-            ),
-            'Suncom' => '@tms.suncom.com',
-            'T-Mobile' => '@tmomail.net',
-            'Tracfone' => '@mmst5.tracfone.com',
-            'U.S. Cellular' => '@email.uscc.net',
-            'Verizon' => '@vtext.com',
-            'Virgin Mobile' => '@vmobl.com'
-        );
-        if (is_array($provider_domains[$provider])) {
-            $at_domain = array_rand($provider_domains[$provider]);
-        } else {
-            $at_domain = $provider_domains[$provider];
-        }
-        return $at_domain;
     }
 
     /**
@@ -592,17 +388,6 @@ class BetterAngelsPlugin {
             $this->prefix . 'delete_old_alerts',
             array($new_str)
         );
-    }
-
-    /**
-     * Dispatches events to respond to user metadata additions.
-     */
-    public function addedUserMeta ($meta_id, $object_id, $meta_key, $_meta_value) {
-        switch ($meta_key) {
-            case $this->prefix . 'guardians':
-                $this->sendGuardianRequest($_meta_value);
-                break;
-        }
     }
 
     /**
@@ -897,32 +682,6 @@ class BetterAngelsPlugin {
         return $res;
     }
 
-    public function addContactInfoFields ($user_contact) {
-        $user_contact[$this->prefix . 'sms'] = esc_html__('Phone number', 'better-angels');
-        $user_contact[$this->prefix . 'pronoun'] = esc_html__('Gender pronoun', 'better-angels');
-        return $user_contact;
-    }
-
-    public function addProfileFields () {
-        require_once 'pages/profile.php';
-    }
-    public function updateProfileFields () {
-        // TODO: Whitelist valid providers.
-        update_user_meta(get_current_user_id(), $this->prefix . 'sms_provider', $_POST[$this->prefix . 'sms_provider']);
-        update_user_meta(get_current_user_id(), $this->prefix . 'call_for_help', strip_tags($_POST[$this->prefix . 'call_for_help']));
-
-        if (!empty($_POST[$this->prefix . 'public_responder'])) {
-            update_user_meta(get_current_user_id(), $this->prefix . 'public_responder', 1);
-        } else {
-            delete_user_meta(get_current_user_id(), $this->prefix . 'public_responder');
-        }
-    }
-
-    // TODO: Write help screens.
-    public function registerContextualHelp () {
-        $screen = get_current_screen();
-    }
-
     /**
      * Detects an alert "short URL," which is a GET request with a special querystring parameter
      * that matches the first 8 characters of an alert's incident hash value and, if matched,
@@ -1056,43 +815,6 @@ class BetterAngelsPlugin {
         }
     }
 
-    private function showDonationAppeal () {
-?>
-<div class="donation-appeal">
-    <p style="text-align: center; font-style: italic; margin: 1em 3em;"><?php print sprintf(
-esc_html__('Bouy is provided as free software, but sadly grocery stores do not offer free food. If you like this plugin, please consider %1$s to its %2$s. &hearts; Thank you!', 'better-angels'),
-'<a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&amp;business=meitarm%40gmail%2ecom&lc=US&amp;item_name=Better%20Angels&amp;item_number=better%2dangels&amp;currency_code=USD&amp;bn=PP%2dDonationsBF%3abtn_donateCC_LG%2egif%3aNonHosted">' . esc_html__('making a donation', 'better-angels') . '</a>',
-'<a href="http://Cyberbusking.org/">' . esc_html__('houseless, jobless, nomadic developer', 'better-angels') . '</a>'
-);?></p>
-</div>
-<?php
-    }
-
-    public function validateSettings ($input) {
-        $safe_input = array();
-        foreach ($input as $k => $v) {
-            switch ($k) {
-                case 'safety_info':
-                    $safe_input[$k] = force_balance_tags($v);
-                    break;
-                case 'alert_ttl_num':
-                    if ($v > 0) {
-                        $safe_input[$k] = intval($v);
-                    } else {
-                        $safe_input[$k] = $this->default_alert_ttl_num;
-                    }
-                    break;
-                case 'alert_ttl_multiplier':
-                case 'future_alerts':
-                case 'delete_old_incident_media':
-                case 'debug':
-                    $safe_input[$k] = intval($v);
-                    break;
-            }
-        }
-        return $safe_input;
-    }
-
     /**
      * Get the guardians (resonse team members who receive alerts) for a given user.
      *
@@ -1130,30 +852,6 @@ esc_html__('Bouy is provided as free software, but sadly grocery stores do not o
     private function getUserGenderPronoun ($user_id) {
         $pronoun = get_user_meta($user_id, $this->prefix . 'pronoun', true);
         return (empty($pronoun)) ? 'their' : $pronoun;
-    }
-
-    /**
-     * Sends a notification (by email) asking a user for confirmation to join a response team.
-     *
-     * @param int $guardian_id The user to notify.
-     * @return bool Same as wp_mail()'s return value.
-     */
-    private function sendGuardianRequest ($guardian_id) {
-        $curr_user = wp_get_current_user();
-        // Send an email notification to the guardian asking for permission to be added to team.
-        $g = get_userdata($guardian_id);
-        $subject = sprintf(
-            __('%1$s wants you to join %2$s crisis response team.', 'better-angels'),
-            $curr_user->display_name, $this->getUserGenderPronoun($curr_user->ID)
-        );
-        // TODO: Write a better message.
-        $msg = wp_nonce_url(
-            admin_url(
-                'admin.php?page=' . $this->prefix . 'confirm-guardianship'
-            ),
-            $this->prefix . 'confirm-guardianship', $this->prefix . 'nonce'
-        );
-        return wp_mail($g->user_email, $subject, $msg);
     }
 
     /**
@@ -1323,49 +1021,6 @@ esc_html__('Bouy is provided as free software, but sadly grocery stores do not o
     private function setupGuardian ($guardian_id, $user_id, $settings) {
         $this->addGuardian($guardian_id, $user_id);
         $this->setGuardianInfo($guardian_id, $user_id, $settings);
-    }
-
-    /**
-     * Loads the appropriate document from the localized `help` folder
-     * and inserts it as a help tab on the current screen.
-     *
-     * @return void
-     */
-    public function addHelpTab () {
-        $screen = get_current_screen();
-        $this->debug_log(sprintf(
-            __('Loading help tab info for screen ID %s' ,'better-angels'),
-            print_r($screen, true)
-        ));
-
-        if (!class_exists('Parsedown')) {
-            require_once plugin_dir_path(__FILE__) . 'includes/parsedown/Parsedown.php';
-        }
-
-        $Parsedown = new Parsedown();
-        $files = glob(plugin_dir_path(__FILE__) . 'help/' . get_locale() . "/{$screen->id}*.md");
-        $num = 1;
-        foreach ($files as $file) {
-            $lines = @file($file);
-            if ($lines) {
-                $title = wp_strip_all_tags($Parsedown->text(array_shift($lines)));
-                $html = $Parsedown->text(implode("\n", $lines));
-                $screen->add_help_tab(array(
-                    'title' => $title,
-                    'id' => esc_attr("{$screen->id}-help-tab-$num"),
-                    'content' => $html
-                ));
-            }
-            $num++;
-        }
-    }
-
-    public function renderActivateAlertPage () {
-        if (!current_user_can('read')) {
-            esc_html_e('You do not have sufficient permissions to access this page.', 'better-angels');
-            return;
-        }
-        require_once 'pages/activate-alert.php';
     }
 
     public function renderReviewAlertPage () {

@@ -79,11 +79,13 @@ class WP_Buoy_Plugin {
         require_once 'class-buoy-team.php';
         require_once 'class-buoy-notification.php';
         require_once 'class-buoy-user.php';
+        require_once 'class-buoy-alert.php';
 
         WP_Buoy_Settings::register();
         WP_Buoy_Team::register();
         WP_Buoy_Notification::register();
         WP_Buoy_User::register();
+        WP_Buoy_Alert::register();
     }
 
     /**
@@ -133,7 +135,7 @@ class WP_Buoy_Plugin {
             if ($lines) {
                 $args = array(
                     'title' => sanitize_text_field($Parsedown->text(array_shift($lines))),
-                    'id' => esc_attr(WP_Buoy_Plugin::$prefix . "-{$screen->id}-help-tab-$num"),
+                    'id' => esc_attr("{$screen->id}-help-tab-$num"),
                     'content' => $Parsedown->text(implode("\n", $lines))
                 );
                 $m = array();

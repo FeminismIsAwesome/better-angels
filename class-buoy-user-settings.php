@@ -34,9 +34,10 @@ class WP_Buoy_User_Settings {
      */
     private $default = array(
         // option name              => default/possible values
-        'phone_number'              => '',
-        'gender_pronoun_possessive' => '',
         'crisis_message'            => '',
+        'gender_pronoun_possessive' => '',
+        'installer_dismissed'       => false,
+        'phone_number'              => '',
         'public_responder'          => false,
         'sms_provider'              => array(
             '',
