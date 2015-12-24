@@ -93,7 +93,7 @@ class WP_Buoy_Settings {
     }
 
     public function delete ($key) {
-        unset($this->option[$key]);
+        unset($this->options[$key]);
     }
 
     /**
