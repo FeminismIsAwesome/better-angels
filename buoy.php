@@ -48,6 +48,7 @@ class WP_Buoy_Plugin {
     public static function register () {
         add_action('plugins_loaded', array(__CLASS__, 'registerL10n'));
         add_action('init', array(__CLASS__, 'initialize'));
+        add_action('admin_head', array(__CLASS__, 'addHelpSidebar'));
 
         register_activation_hook(__FILE__, array(__CLASS__, 'activate'));
         register_deactivation_hook(__FILE__, array(__CLASS__, 'deactivate'));
@@ -81,6 +82,8 @@ class WP_Buoy_Plugin {
         require_once 'class-buoy-user.php';
         require_once 'class-buoy-alert.php';
 
+        require_once 'includes/class-wp-screen-help-loader.php';
+
         WP_Buoy_Settings::register();
         WP_Buoy_Team::register();
         WP_Buoy_Notification::register();
@@ -113,40 +116,25 @@ class WP_Buoy_Plugin {
      * Loads the appropriate document from the localized `help` folder
      * and inserts it as a help tab on the current screen.
      *
-     * @todo Should the help system be moved to its own class?
-     *
-     * @uses WP_Screen::add_help_tab()
-     * @uses Parsedown::text()
+     * @uses WP_Screen_Help_loader::applyTabs()
      *
      * @return void
      */
     public static function addHelpTab () {
-        $screen = get_current_screen();
+        $help = new WP_Screen_Help_Loader(plugin_dir_path(__FILE__) . 'help');
+        $help->applyTabs();
+    }
 
-        if (!class_exists('Parsedown')) {
-            require_once plugin_dir_path(__FILE__) . 'includes/parsedown/Parsedown.php';
-        }
-
-        $Parsedown = new Parsedown();
-        $files = glob(plugin_dir_path(__FILE__) . 'help/' . get_locale() . "/{$screen->action}{$screen->id}*.md");
-        $num = 1;
-        foreach ($files as $file) {
-            $lines = @file($file);
-            if ($lines) {
-                $args = array(
-                    'title' => sanitize_text_field($Parsedown->text(array_shift($lines))),
-                    'id' => esc_attr("{$screen->id}-help-tab-$num"),
-                    'content' => $Parsedown->text(implode("\n", $lines))
-                );
-                $m = array();
-                preg_match('/-([0-9]+)\.md$/i', $file, $m);
-                if ($m) {
-                    $args['priority'] = absint($m[1]);
-                }
-                $screen->add_help_tab($args);
-            }
-            $num++;
-        }
+    /**
+     * Appends appropriate sidebar content based on current screen.
+     *
+     * @uses WP_Screen_Help_Loader::applySidebar()
+     *
+     * @return void
+     */
+    public static function addHelpSidebar () {
+        $help = new WP_Screen_Help_Loader(plugin_dir_path(__FILE__) . 'help');
+        $help->applySidebar();
     }
 
 }
