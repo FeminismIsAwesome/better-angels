@@ -22,7 +22,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     /**
      * The team owner.
      *
-     * @var WP_user
+     * @var WP_User
      */
     private $author;
 
@@ -170,6 +170,25 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     }
 
     /**
+     * Checks to ensure there is at least one confirmed member on the
+     * team.
+     *
+     * A "responder" in this context is a confirmed team member.
+     *
+     * @uses WP_Buoy_Team::is_confirmed()
+     *
+     * @return bool
+     */
+    public function has_responder () {
+        foreach ($this->members as $member) {
+            if ($this->is_confirmed($member->ID)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * @return void
      */
     public static function register () {
@@ -217,6 +236,8 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         add_action('save_post_' . parent::$prefix . '_team', array(__CLASS__, 'saveTeam'));
 
         add_action('deleted_post_meta', array(__CLASS__, 'deletedPostMeta'), 10, 4);
+
+        add_action(parent::$prefix . '_team_member_removed', array(__CLASS__, 'checkMemberCount'), 10, 2);
 
         add_filter('user_has_cap', array(__CLASS__, 'filterCaps'));
     }
@@ -373,6 +394,27 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     }
 
     /**
+     * Checks if a team no longer has any members.
+     *
+     * If a team is emptied for any reason, whether because the user
+     * has removed all their members or the members themselves decide
+     * to leave, this will fire a "{$post->post_type}_emptied" hook.
+     *
+     * @param int $user_id The user who was just removed.
+     * @param WP_Buoy_Team The team they left.
+     */
+    public static function checkMemberCount ($user_id, $team) {
+        if (empty($team->get_member_ids())) {
+            /**
+             * Fires after the last member of a team is removed (or leaves).
+             *
+             * @param WP_Buoy_Team $team
+             */
+            do_action($team->post->post_type . '_emptied', $team);
+        }
+    }
+
+    /**
      * @return void
      */
     public static function registerAdminMenu () {
@@ -426,8 +468,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @return void
      */
     public static function filterTeamPostsList ($query) {
-        if (is_admin()) {
-            $screen = get_current_screen();
+        if (is_admin() && $screen = get_current_screen()) {
             if ('edit-' . parent::$prefix .'_team' === $screen->id && current_user_can('edit_' . parent::$prefix . '_teams')) {
                 $query->set('author', get_current_user_id());
                 add_filter('views_' . $screen->id, array(__CLASS__, 'removeTeamPostFilterLinks'));

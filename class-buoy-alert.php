@@ -38,15 +38,20 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     public static function registerAdminMenu () {
         $hooks = array();
 
-        $hooks[] = $hook = add_dashboard_page(
-            __('Activate Alert', 'buoy'),
-            __('Activate Alert', 'buoy'),
-            'read', // give access to all users including Subscribers role
-            parent::$prefix . '_activate_alert',
-            array(__CLASS__, 'renderActivateAlertPage')
-        );
-        add_action('load-' . $hook, array(__CLASS__, 'removeScreenOptions'));
-        add_action('load-' . $hook, array(__CLASS__, 'addInstallerScripts'));
+        $buoy_user = new WP_Buoy_User(get_current_user_id());
+        // Only add the "Activate Alert" screen if there are possible
+        // responders available to respond, of course.
+        if ($buoy_user->has_responder()) {
+            $hooks[] = $hook = add_dashboard_page(
+                __('Activate Alert', 'buoy'),
+                __('Activate Alert', 'buoy'),
+                'read', // give access to all users including Subscribers role
+                parent::$prefix . '_activate_alert',
+                array(__CLASS__, 'renderActivateAlertPage')
+            );
+            add_action('load-' . $hook, array(__CLASS__, 'removeScreenOptions'));
+            add_action('load-' . $hook, array(__CLASS__, 'addInstallerScripts'));
+        }
 
         $hooks[] = add_submenu_page(
             null,

@@ -26,6 +26,13 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
     private $_options;
 
     /**
+     * The user's teams.
+     *
+     * @var WP_Buoy_Team[]
+     */
+    private $_teams;
+
+    /**
      * Constructor.
      *
      * @param int $user_id
@@ -36,6 +43,59 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
         $this->_user = get_userdata($user_id);
         $this->_options = new WP_Buoy_User_Settings($this->_user);
         return $this;
+    }
+
+    /**
+     * Gets the user's teams.
+     *
+     * @return WP_Buoy_Team[]
+     */
+    public function get_teams () {
+        $ids = get_posts(array(
+            'post_type' => parent::$prefix . '_team',
+            'author' => $this->_user->ID,
+            'posts_per_page' => -1,
+            'fields' => 'ids'
+        ));
+
+        $teams = array();
+        foreach ($ids as $id) {
+            $teams[] = new WP_Buoy_Team($id);
+        }
+        $this->_teams = $teams;
+
+        return $this->_teams;
+    }
+
+    /**
+     * Checks whether or not the user has at least one responder.
+     *
+     * A "responder" in this context is a "confirmed" team member.
+     * At least one responder is needed before the "Activate Alert"
+     * screen will be of any use, obviously. This looks for confirmed
+     * members on any of the user's teams and returns as soon as it
+     * can find one.
+     *
+     * @uses WP_Buoy_Team::has_responder()
+     *
+     * @return bool
+     */
+    public function has_responder () {
+        if (null === $this->_teams) {
+            $this->get_teams();
+        }
+        // We need a loop here because, unless we use straight SQL,
+        // we can't do a REGEXP compare on the `meta_key`, only the
+        // `meta_value` itself. There's an experimental way to do it
+        // over on Stack Exchange but this is more standard for now.
+        //
+        // See https://wordpress.stackexchange.com/a/193841/66139
+        foreach ($this->_teams as $team) {
+            if ($team->has_responder()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -87,6 +147,27 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
         add_action('load-profile.php', array('WP_Buoy_Plugin', 'addHelpTab'));
         add_action('show_user_profile', array(__CLASS__, 'renderProfile'));
         add_action('personal_options_update', array(__CLASS__, 'saveProfile'));
+
+        add_action(parent::$prefix . '_team_emptied', array(__CLASS__, 'warnIfNoResponder'));
+    }
+
+    /**
+     * Sends a warning to a user if they no longer have responders.
+     *
+     * @uses WP_Buoy_User::hasResponders()
+     *
+     * @param WP_Buoy_Team $team The team that has been emptied.
+     *
+     * @return bool
+     */
+    public static function warnIfNoResponder ($team) {
+        $buoy_user = new self($team->author->ID);
+        if (false === $buoy_user->has_responder()) {
+            // TODO: This should be a bit cleaner. Maybe part of the WP_Buoy_Notification class?
+            $subject = __('You no longer have crisis responders.', 'buoy');
+            $msg = __('Either you have removed the last of your Buoy crisis response team members, or they have all left your teams. You will not be able to send a Buoy alert to anyone until you add more people to your team(s).', 'buoy');
+            wp_mail($buoy_user->_user->user_email, $subject, $msg);
+        }
     }
 
     /**
