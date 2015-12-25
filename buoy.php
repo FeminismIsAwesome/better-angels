@@ -12,6 +12,21 @@
 
 if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
 
+if (!defined('WP_BUOY_MIN_PHP_VERSION')) {
+    /**
+     * The minimum version of PHP needed to run the plugin.
+     *
+     * This is explicit because WordPress supports even older versions
+     * of PHP, so we check the running version on plugin activation.
+     *
+     * We need PHP 5.3 or later since WP_Buoy_Plugin::error_msg() uses
+     * late static binding to get caller information in child classes.
+     *
+     * @see https://secure.php.net/manual/en/language.oop5.late-static-bindings.php
+     */
+    define('WP_BUOY_MIN_PHP_VERSION', '5.3');
+}
+
 /**
  * Base class that WordPress uses to register and initialize plugin.
  *
@@ -86,14 +101,59 @@ class WP_Buoy_Plugin {
      * Method to run when the plugin is activated by a user in the
      * WordPress Dashboard admin screen.
      *
+     * This first checks to ensure minimum WordPress and PHP versions
+     * have been satisfied. If not, the plugin deactivates and exits.
+     *
+     * @global $wp_version
+     *
+     * @uses $wp_version
+     * @uses WP_BUOY_MIN_PHP_VERSION
+     * @uses WP_Buoy_Plugin::get_minimum_wordpress_version()
+     * @uses deactivate_plugins()
+     * @uses plugin_basename()
      * @uses WP_Buoy_Settings::activate()
      *
      * @return void
      */
     public static function activate () {
+        global $wp_version;
+        $min_wp_version = self::get_minimum_wordpress_version();
+
+        if (version_compare(WP_BUOY_MIN_PHP_VERSION, PHP_VERSION) > 0) {
+            deactivate_plugins(plugin_basename(__FILE__));
+            wp_die(sprintf(
+                __('Buoy requires at least PHP version %1$s. You have PHP version %2$s.', 'buoy'),
+                WP_BUOY_MIN_PHP_VERSION, PHP_VERSION
+            ));
+        }
+        if (version_compare($min_wp_version, $wp_version) > 0) {
+            deactivate_plugins(plugin_basename(__FILE__));
+            wp_die(sprintf(
+                __('Buoy requires at least WordPress version %1$s. You have WordPress version %2$s.', 'buoy'),
+                $min_wp_version, $wp_version
+            ));
+        }
+
         require_once 'class-buoy-settings.php';
         $options = WP_Buoy_Settings::get_instance();
         $options->activate();
+    }
+
+    /**
+     * Returns the "Requires at least" value from plugin's readme.txt.
+     *
+     * @see https://wordpress.org/plugins/about/readme.txt
+     *
+     * @return string
+     */
+    public static function get_minimum_wordpress_version () {
+        $lines = @file(plugin_dir_path(__FILE__) . 'readme.txt');
+        foreach ($lines as $line) {
+            preg_match('/^Requires at least: ([0-9.]+)$/', $line, $m);
+            if ($m) {
+                return $m[1];
+            }
+        }
     }
 
     /**
@@ -126,6 +186,35 @@ class WP_Buoy_Plugin {
     public static function addHelpSidebar () {
         $help = new WP_Screen_Help_Loader(plugin_dir_path(__FILE__) . 'help');
         $help->applySidebar();
+    }
+
+    /**
+     * Prepares an error message for logging.
+     *
+     * @param string $message
+     *
+     * @return string
+     */
+    private static function error_msg ($message) {
+        // the "2" is so we get the name of the function that originally called debug_log()
+        // This works so long as error_msg() is always called by debug_log()
+        return '[' . get_called_class() . '::' . debug_backtrace()[2]['function'] . '()]: ' . $message;
+    }
+
+    /**
+     * Prints a message to the WordPress `wp-content/debug.log` file
+     * if the plugin's "detailed debugging" setting is enabled.
+     *
+     * @uses WP_Buoy_Settings::get()
+     *
+     * @param string $message
+     *
+     * @return void
+     */
+    protected static function debug_log ($message) {
+        if (WP_Buoy_Settings::get_instance()->get('debug')) {
+            error_log(static::error_msg($message));
+        }
     }
 
 }

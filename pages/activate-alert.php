@@ -1,23 +1,23 @@
 <?php $options = WP_Buoy_Settings::get_instance();?>
 <form id="activate-alert-form" action="<?php print esc_attr(admin_url('admin-ajax.php'));?>" method="POST">
-    <?php wp_nonce_field(parent::$prefix . 'activate-alert', parent::$prefix . 'nonce');?>
+    <?php wp_nonce_field(parent::$prefix . '-activate-alert', parent::$prefix . '_nonce');?>
     <input type="hidden"
         name="action"
-        value="<?php print esc_attr(parent::$prefix)?>findme"
+        value="<?php print esc_attr(parent::$prefix)?>_new_alert"
     />
 
     <div id="modal-features" class="hidden">
         <?php if ($options->get('future_alerts')) : ?>
         <button id="schedule-future-alert-btn" class="btn" type="button">
-            <img src="<?php print plugins_url('../img/stock_alarm.svg', __FILE__);?>" alt="<?php esc_attr_e('Schedule timed alert', 'buoy');?>" />
+            <img src="<?php print esc_attr(plugins_url('../img/stock_alarm.svg', __FILE__));?>" alt="<?php esc_attr_e('Schedule timed alert', 'buoy');?>" />
         </button>
         <?php endif; ?>
         <button id="activate-msg-btn-submit" class="btn" type="button">
-            <img src="<?php print plugins_url('../img/chat-bubble-1.svg', __FILE__);?>" alt="<?php esc_attr_e('Send emergency message', 'buoy')?>" />
+            <img src="<?php print esc_attr(plugins_url('../img/chat-bubble-1.svg', __FILE__));?>" alt="<?php esc_attr_e('Send emergency message', 'buoy')?>" />
         </button>
     </div>
     <button id="activate-btn-submit" class="btn">
-        <img src="<?php print plugins_url('../img/life-ring.svg', __FILE__);?>" alt="<?php esc_attr_e('Activate alert', 'buoy')?>" />
+        <img src="<?php print esc_attr(plugins_url('../img/life-ring.svg', __FILE__));?>" alt="<?php esc_attr_e('Activate alert', 'buoy')?>" />
     </button>
 </form>
 

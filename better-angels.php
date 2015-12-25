@@ -26,17 +26,16 @@ class BetterAngelsPlugin {
     public function __construct () {
         $this->Error = new WP_Error();
 
-        add_action('init', array($this, 'registerCustomPostTypes'));
-        add_action('admin_init', array($this, 'registerSettings'));
         add_action('admin_init', array($this, 'configureCron'));
         add_action('current_screen', array($this, 'maybeRedirect'));
         add_action('send_headers', array($this, 'redirectShortUrl'));
         add_action('wp_before_admin_bar_render', array($this, 'addIncidentMenu'));
+
         add_action('admin_enqueue_scripts', array($this, 'enqueueAdminScripts'));
         add_action('admin_enqueue_scripts', array($this, 'enqueueMapsScripts'));
         add_action('admin_head-dashboard_page_' . $this->prefix . 'activate-alert', array($this, 'doAdminHeadActivateAlert'));
-        add_action('admin_menu', array($this, 'registerAdminMenu'));
         add_action('admin_notices', array($this, 'showAdminNotices'));
+
         add_action('wp_ajax_' . $this->prefix . 'findme', array($this, 'handleAlert'));
         add_action('wp_ajax_' . $this->prefix . 'schedule-alert', array($this, 'handleScheduledAlert'));
         add_action('wp_ajax_' . $this->prefix . 'unschedule-alert', array($this, 'handleUnscheduleAlert'));
@@ -162,30 +161,6 @@ class BetterAngelsPlugin {
         }
     }
 
-    /**
-     * Prints a message to the WordPress wp-content/debug.log file
-     * if the plugin's "detailed debugging" setting is enabled.
-     *
-     * @param string $message
-     * @return void
-     */
-    private function debug_log ($message) {
-        $options = get_option($this->prefix . 'settings');
-        if (!empty($options['debug'])) {
-            error_log($this->error_msg($message));
-        }
-    }
-
-    /**
-     * Prepares an error message for logging.
-     *
-     * @param string $message
-     * @return string
-     */
-    private function error_msg ($message) {
-        return '[' . __CLASS__ . ']: ' . $message;
-    }
-
     public function configureCron () {
         $options = get_option($this->prefix . 'settings');
         $path_to_wp_cron = ABSPATH . 'wp-cron.php';
@@ -240,29 +215,6 @@ class BetterAngelsPlugin {
         print '<link rel="apple-touch-icon" href="' . plugins_url('img/apple-touch-icon-152x152.png', __FILE__) . '" />';
         // TODO: This isn't showing up, figure out why.
         //print '<link rel="apple-touch-startup-image" href="' . plugins_url('img/apple-touch-startup.png', __FILE__) . '">';
-    }
-
-    public function registerAdminMenu () {
-        $hooks = array();
-
-        $hooks[] = add_submenu_page(
-            null,
-            __('Respond to Alert', 'better-angels'),
-            __('Respond to Alert', 'better-angels'),
-            'read',
-            $this->prefix . 'review-alert',
-            array($this, 'renderReviewAlertPage')
-        );
-
-        $hooks[] = add_submenu_page(
-            null,
-            __('Incident Chat', 'better-angels'),
-            __('Incident Chat', 'better-angels'),
-            'read',
-            $this->prefix . 'incident-chat',
-            array($this, 'renderIncidentChatPage')
-        );
-
     }
 
     public function maybeRedirect () {

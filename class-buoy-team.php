@@ -31,28 +31,69 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      *
      * The members list include those who are not yet confirmed (pending).
      *
-     * @var array
+     * @var WP_User[]
      */
     private $members = array();
 
+    /**
+     * Constructor.
+     *
+     * @param int $team_id The post ID of the team.
+     *
+     * @return WP_Buoy_Team
+     */
     public function __construct ($team_id) {
         $this->post = get_post($team_id);
         $this->members = array_map('get_userdata', array_unique(get_post_meta($this->post->ID, '_team_members')));
         $this->author = get_userdata($this->post->post_author);
+        return $this;
     }
 
     public function __get ($name) {
         return $this->$name;
     }
 
+    /**
+     * Gets a list of all the user IDs associated with this team.
+     *
+     * This does not do any checking about whether the given user ID
+     * is "confirmed" or not.
+     *
+     * @see WP_Buoy_Team::is_confirmed()
+     *
+     * @return string[] IDs are actually returned as string values.
+     */
     public function get_member_ids () {
         return array_unique(get_post_meta($this->post->ID, '_team_members'));
     }
 
+    /**
+     * Checks whether or not the given user ID is on the team.
+     *
+     * This does not check whether the user is confirmed or not, only
+     * whether the user has been at least invited to be a member of a
+     * team.
+     *
+     * @see WP_Buoy_Team::is_confirmed()
+     *
+     * @param int $user_id
+     *
+     * @return bool
+     */
     public function is_member ($user_id) {
         return in_array($user_id, $this->get_member_ids());
     }
 
+    /**
+     * Adds a user to this team (a new member).
+     *
+     * @uses add_post_meta()
+     * @uses do_action()
+     *
+     * @param int $user_id
+     *
+     * @return WP_Buoy_Team
+     */
     public function add_member ($user_id) {
         add_post_meta($this->post->ID, '_team_members', $user_id, false);
 
@@ -63,8 +104,20 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
          * @param WP_Buoy_Team $this
          */
         do_action(parent::$prefix . '_team_member_added', $user_id, $this);
+
+        return $this;
     }
 
+    /**
+     * Removes a member from this team.
+     *
+     * @uses delete_post_meta()
+     * @uses do_action()
+     *
+     * @param int $user_id
+     *
+     * @return WP_Buoy_Team
+     */
     public function remove_member ($user_id) {
         delete_post_meta($this->post->ID, '_team_members', $user_id);
 
@@ -75,21 +128,50 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
          * @param WP_Buoy_Team $this
          */
         do_action(parent::$prefix . '_team_member_removed', $user_id, $this);
+
+        return $this;
     }
 
+    /**
+     * Sets the confirmation flag for a user on this team.
+     *
+     * @param int $user_id
+     *
+     * @return WP_Buoy_Team
+     */
     public function confirm_member ($user_id) {
         add_post_meta($this->post->ID, "_member_{$user_id}_is_confirmed", true, true);
+        return $this;
     }
 
+    /**
+     * Unsets the confirmation flag for a user on this team.
+     *
+     * @param int $user_id
+     *
+     * @return WP_Buoy_Team
+     */
     public function unconfirm_member ($user_id) {
         delete_post_meta($this->post->ID, "_member_{$user_id}_is_confirmed");
+        return $this;
     }
 
+    /**
+     * Checks whether or not a user is "confirmed" to be on the team.
+     *
+     * "Confirmation" consists of a flag in the team post's metadata.
+     *
+     * @param int $user_id
+     *
+     * @return bool
+     */
     public function is_confirmed ($user_id) {
         return get_post_meta($this->post->ID, "_member_{$user_id}_is_confirmed", true);
     }
 
-
+    /**
+     * @return void
+     */
     public static function register () {
         if (!class_exists('Buoy_Teams_List_Table')) { // for the admin UI
             require plugin_dir_path(__FILE__) . 'class-buoy-teams-list-table.php';
@@ -139,6 +221,11 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         add_filter('user_has_cap', array(__CLASS__, 'filterCaps'));
     }
 
+    /**
+     * @param WP_Post $post
+     *
+     * @return void
+     */
     public static function registerMetaBoxes ($post) {
         $team = new self($post->ID);
         add_meta_box(
@@ -163,16 +250,25 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         );
     }
 
+    /**
+     * @return void
+     */
     public static function renderAddTeamMemberMetaBox ($post) {
         wp_nonce_field(parent::$prefix . '_add_team_member', parent::$prefix . '_add_team_member_nonce');
         require 'pages/add-team-member-meta-box.php';
     }
 
+    /**
+     * @return void
+     */
     public static function renderCurrentTeamMetaBox ($post) {
         wp_nonce_field(parent::$prefix . '_choose_team', parent::$prefix . '_choose_team_nonce');
         require 'pages/current-team-meta-box.php';
     }
 
+    /**
+     * @return void
+     */
     public static function renderTeamMembershipPage () {
         $team_table = new Buoy_Teams_List_Table(parent::$prefix . '_team');
         $team_table->prepare_items();
@@ -186,6 +282,9 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         print '</div>';
     }
 
+    /**
+     * @return void
+     */
     public static function processTeamTableActions () {
         $table = new Buoy_Teams_List_Table(parent::$prefix . '_team');
         $teams = array();
@@ -212,6 +311,24 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         }
     }
 
+    /**
+     * Updates the team metadata (membership list).
+     *
+     * This is called by WordPress's `save_post_{$post->post_type}` hook.
+     *
+     * @see https://developer.wordpress.org/reference/hooks/save_post_post-post_type/
+     *
+     * @global $_POST
+     *
+     * @uses wp_verify_nonce()
+     * @uses WP_Buoy_Team::remove_member()
+     * @uses WP_Buoy_Team::get_member_ids()
+     * @uses WP_Buoy_Team::add_member()
+     *
+     * @param int $post_id
+     *
+     * @return void
+     */
     public static function saveTeam ($post_id) {
         $team = new self($post_id);
         // Remove any team members indicated.
@@ -237,6 +354,15 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      *
      * This is used primarily to detect when a user is removed from a
      * team and, when this occurrs, remove the confirmation flag, too.
+     *
+     * @see https://developer.wordpress.org/reference/hooks/deleted_meta_type_meta/
+     *
+     * @param array $meta_ids
+     * @param int $post_id
+     * @param string $meta_key
+     * @param mixed $meta_value
+     *
+     * @return void
      */
     public static function deletedPostMeta ($meta_ids, $post_id, $meta_key, $meta_value) {
         $team = new self($post_id);
@@ -246,6 +372,9 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         }
     }
 
+    /**
+     * @return void
+     */
     public static function registerAdminMenu () {
         $hooks = array();
 
@@ -273,7 +402,10 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      *
      * Called by the `user_has_cap` filter.
      *
+     * @see https://developer.wordpress.org/reference/hooks/user_has_cap/
+     *
      * @param array $caps The user's actual capabilities.
+     *
      * @return array $caps
      */
     public static function filterCaps ($caps) {
@@ -290,6 +422,8 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * WP admin view when viewing their "My Teams" dashboard page.
      *
      * @param WP_Query $query 
+     *
+     * @return void
      */
     public static function filterTeamPostsList ($query) {
         if (is_admin()) {
@@ -304,6 +438,12 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
 
     /**
      * Removes the filter links in the Team posts table list.
+     *
+     * @see https://developer.wordpress.org/reference/hooks/views_this-screen-id/
+     *
+     * @param array $items
+     *
+     * @return array $items
      */
     public static function removeTeamPostFilterLinks ($items) {
         unset($items['all']);
@@ -314,6 +454,12 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
 
     /**
      * Removes the "Quick Edit" link in the Team posts action row.
+     *
+     * @see https://developer.wordpress.org/reference/hooks/post_row_actions/
+     *
+     * @param array $items
+     *
+     * @return array $items
      */
     public static function removeTeamPostActionRowLinks ($items) {
         unset($items['inline hide-if-no-js']);

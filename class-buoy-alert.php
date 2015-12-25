@@ -1,6 +1,10 @@
 <?php
+
 if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
+
 /**
+ * Main class for creating and delegating responses to alerts.
+ *
  * Alerts are posts that record some incident information such as the
  * location and attached media recordings of what's going on.
  *
@@ -11,6 +15,9 @@ if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
  */
 class WP_Buoy_Alert extends WP_Buoy_Plugin {
 
+    /**
+     * @return void
+     */
     public static function register () {
         register_post_type(parent::$prefix . '_alert', array(
             'label' => __('Incidents', 'buoy'),
@@ -25,6 +32,9 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
         add_action('admin_menu', array(__CLASS__, 'registerAdminMenu'));
     }
 
+    /**
+     * @return void
+     */
     public static function registerAdminMenu () {
         $hooks = array();
 
@@ -36,13 +46,51 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
             array(__CLASS__, 'renderActivateAlertPage')
         );
         add_action('load-' . $hook, array(__CLASS__, 'removeScreenOptions'));
-        add_action('load-' . $hook, array(__CLASS__, 'addFrontEndScripts'));
         add_action('load-' . $hook, array(__CLASS__, 'addInstallerScripts'));
-        add_action('load-' . $hook, array(__CLASS__, 'enqueueFrameworkScripts'));
+
+        $hooks[] = add_submenu_page(
+            null,
+            __('Respond to Alert', 'buoy'),
+            __('Respond to Alert', 'buoy'),
+            'read',
+            parent::$prefix . '_review_alert',
+            array(__CLASS__, 'renderReviewAlertPage')
+        );
+
+        $hooks[] = add_submenu_page(
+            null,
+            __('Incident Chat', 'buoy'),
+            __('Incident Chat', 'buoy'),
+            'read',
+            parent::$prefix . '_incident_chat',
+            array(__CLASS__, 'renderIncidentChatPage')
+        );
+
+        foreach ($hooks as $hook) {
+            add_action('load-' . $hook, array(__CLASS__, 'enqueueFrontEndScripts'));
+            add_action('load-' . $hook, array(__CLASS__, 'enqueueFrameworkScripts'));
+        }
     }
 
+    /**
+     * @return void
+     */
     public static function renderActivateAlertPage () {
         require_once 'pages/activate-alert.php';
+    }
+
+    /**
+     * @return void
+     */
+    public static function renderReviewAlertPage () {
+        require_once 'pages/review-alert.php';
+    }
+
+    /**
+     * @return void
+     */
+    public static function renderIncidentChatPage () {
+        require_once 'pages/incident-chat.php';
     }
 
     /**
@@ -69,7 +117,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
      *
      * @return void
      */
-    public static function addFrontEndScripts () {
+    public static function enqueueFrontEndScripts () {
         $plugin_data = get_plugin_data(plugin_dir_path(__FILE__) . parent::$prefix . '.php');
         wp_enqueue_style(
             parent::$prefix . '-style',

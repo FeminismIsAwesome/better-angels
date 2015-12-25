@@ -162,7 +162,7 @@ class WP_Buoy_Settings {
      *
      * @return array
      */
-    public function validateSettings ($input) {
+    public static function validateSettings ($input) {
         // TODO: Refactor this, maybe can do better since the array
         //       of valid options are all in the self::default var.
         $options = self::get_instance();
