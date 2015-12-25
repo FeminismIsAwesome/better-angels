@@ -2,6 +2,11 @@
 /**
  * Manages WordPress on-screen help tabs and sidebar content based on
  * a directory of markdown files.
+ *
+ * @author maymay <bitetheappleback@gmail.com>
+ * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
+ * @license https://www.gnu.org/licenses/gpl-3.0.en.html
+ * @package WordPress\Plugin\WP_Buoy_Plugin\WP_Screen_Help_Loader
  */
 
 if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.

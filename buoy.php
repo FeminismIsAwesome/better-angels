@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Buoy (a Better Angels crisis response system)
  * Plugin URI: https://github.com/meitar/better-angels
- * Description: A community-based crisis response system. <strong>Like this plugin? Please <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&amp;business=TJLPJYXHSRBEE&amp;lc=US&amp;item_name=Better%20Angels&amp;item_number=better-angels&amp;currency_code=USD&amp;bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted" title="Send a donation to the developer of Better Angels">donate</a>. &hearts; Thank you!</strong>
+ * Description: A community-based crisis response system. <strong>Like this plugin? Please <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&amp;business=TJLPJYXHSRBEE&amp;lc=US&amp;item_name=Better%20Angels&amp;item_number=better-angels&amp;currency_code=USD&amp;bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted" title="Send a donation to the developer of Better Angels Buoy">donate</a>. &hearts; Thank you!</strong>
  * Version: 0.1
  * Author: Maymay <bitetheappleback@gmail.com>
  * Author URI: https://maymay.net/
@@ -28,16 +28,6 @@ class WP_Buoy_Plugin {
      * @access public
      */
     public static $prefix = 'buoy';
-
-    /**
-     * Instance of WP_Buoy_Settings used to handle plugin options.
-     *
-     * @var WP_Buoy_Settings
-     */
-    public $options;
-
-    public function __construct () {
-    }
 
     /**
      * Entry point for the WordPress framework into plugin code, that
@@ -71,6 +61,7 @@ class WP_Buoy_Plugin {
      * @uses WP_Buoy_Team::register();
      * @uses WP_Buoy_Notification::register();
      * @uses WP_Buoy_User::register();
+     * @uses WP_Buoy_Alert::register();
      *
      * @return void
      */

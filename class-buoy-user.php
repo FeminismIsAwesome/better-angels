@@ -12,9 +12,68 @@ if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
 class WP_Buoy_User extends WP_Buoy_Plugin {
 
     /**
-     * Constructor.
+     * The WordPress user.
+     *
+     * @var WP_User
      */
-    public function __construct () {
+    private $_user;
+
+    /**
+     * The user's plugin settings.
+     *
+     * @var WP_Buoy_User_Settings
+     */
+    private $_options;
+
+    /**
+     * Constructor.
+     *
+     * @param int $user_id
+     *
+     * @return WP_Buoy_User
+     */
+    public function __construct ($user_id) {
+        $this->_user = get_userdata($user_id);
+        $this->_options = new WP_Buoy_User_Settings($this->_user);
+        return $this;
+    }
+
+    /**
+     * Alias of WP_Buoy_User::get_gender_pronoun_possessive()
+     *
+     * @uses WP_Buoy_User::get_gender_pronoun_possessive()
+     *
+     * @return string
+     */
+    public function get_pronoun () {
+        return $this->get_gender_pronoun_possessive();
+    }
+
+    /**
+     * Gets the possessive gender pronoun of a user.
+     *
+     * @uses WP_Buoy_User::get_option()
+     *
+     * @return string
+     */
+    public function get_gender_pronoun_possessive () {
+        return $this->get_option('gender_pronoun_possessive', __('their', 'buoy'));
+    }
+
+    /**
+     * Gets the value of a user option they have set.
+     *
+     * @uses WP_Buoy_User_Settings::get()
+     *
+     * @param string $name
+     * @param mixed $default
+     *
+     * @return mixed
+     *
+     * @access private
+     */
+    private function get_option ($name, $default = null) {
+        return $this->_options->get($name, $default);
     }
 
     /**

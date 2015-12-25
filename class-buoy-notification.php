@@ -67,22 +67,17 @@ class WP_Buoy_Notification extends WP_Buoy_Plugin {
      * @param WP_Post $post
      */
     public static function inviteMembers ($post_id, $post) {
-        $team = new WP_Buoy_Team($post_id);
+        $team      = new WP_Buoy_Team($post_id);
+        $buoy_user = new WP_Buoy_User($team->author->ID);
         $to_notify = array_unique(get_post_meta($post_id, '_' . parent::$prefix . '_notify'));
+        $subject = sprintf(
+            __('%1$s wants you to join %2$s crisis response team.', 'buoy'),
+            $team->author->display_name, $buoy_user->get_pronoun()
+        );
         foreach ($to_notify as $user_id) {
-            // TODO: Where should this function that gets a pronoun go?
-            $pronoun = get_user_meta($team->author->ID, parent::$prefix . '_pronoun', true);
-            if (!$pronoun) {
-                $pronoun = __('their', 'buoy');
-            }
-
-            $subject = sprintf(
-                __('%1$s wants you to join %2$s crisis response team.', 'buoy'),
-                $team->author->display_name, $pronoun
-            );
             // TODO: Write a better message.
             $msg = admin_url(
-                'edit.php?post_type=' . parent::$prefix . '_team&page=' . parent::$prefix . '_team_membership'
+                'edit.php?post_type=' . $team->post->post_type . '&page=' . parent::$prefix . '_team_membership'
             );
             $user = get_userdata($user_id);
             wp_mail($user->user_email, $subject, $msg);
