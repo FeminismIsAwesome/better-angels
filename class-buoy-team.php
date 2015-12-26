@@ -223,8 +223,8 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         add_action('load-edit.php', array('WP_Buoy_Plugin', 'addHelpTab'));
 
         wp_enqueue_style(
-            __CLASS__ . '_style',
-            plugins_url('admin-teams.css', __FILE__)
+            __CLASS__ . '-style',
+            plugins_url('css/admin-teams.css', __FILE__)
         );
 
         add_action('current_screen', array(__CLASS__, 'processTeamTableActions'));

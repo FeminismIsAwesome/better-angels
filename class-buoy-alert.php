@@ -38,20 +38,15 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     public static function registerAdminMenu () {
         $hooks = array();
 
-        $buoy_user = new WP_Buoy_User(get_current_user_id());
-        // Only add the "Activate Alert" screen if there are possible
-        // responders available to respond, of course.
-        if ($buoy_user->has_responder()) {
-            $hooks[] = $hook = add_dashboard_page(
-                __('Activate Alert', 'buoy'),
-                __('Activate Alert', 'buoy'),
-                'read', // give access to all users including Subscribers role
-                parent::$prefix . '_activate_alert',
-                array(__CLASS__, 'renderActivateAlertPage')
-            );
-            add_action('load-' . $hook, array(__CLASS__, 'removeScreenOptions'));
-            add_action('load-' . $hook, array(__CLASS__, 'addInstallerScripts'));
-        }
+        $hooks[] = $hook = add_dashboard_page(
+            __('Activate Alert', 'buoy'),
+            __('Activate Alert', 'buoy'),
+            'read', // give access to all users including Subscribers role
+            parent::$prefix . '_activate_alert',
+            array(__CLASS__, 'renderActivateAlertPage')
+        );
+        add_action('load-' . $hook, array(__CLASS__, 'removeScreenOptions'));
+        add_action('load-' . $hook, array(__CLASS__, 'addInstallerScripts'));
 
         $hooks[] = add_submenu_page(
             null,
@@ -81,7 +76,12 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
      * @return void
      */
     public static function renderActivateAlertPage () {
-        require_once 'pages/activate-alert.php';
+        $buoy_user = new WP_Buoy_User(get_current_user_id());
+        if (!$buoy_user->has_responder()) {
+            require_once 'pages/no-responders-available.php';
+        } else {
+            require_once 'pages/activate-alert.php';
+        }
     }
 
     /**
@@ -126,7 +126,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
         $plugin_data = get_plugin_data(plugin_dir_path(__FILE__) . parent::$prefix . '.php');
         wp_enqueue_style(
             parent::$prefix . '-style',
-            plugins_url(parent::$prefix . '.css', __FILE__),
+            plugins_url('css/' . parent::$prefix . '.css', __FILE__),
             false,
             $plugin_data['Version']
         );

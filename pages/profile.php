@@ -8,7 +8,7 @@
                 </label>
             </th>
             <td>
-                <input type="text"
+                <input type="text" class="small-text"
                     id="<?php print esc_attr(WP_Buoy_Plugin::$prefix);?>_gender_pronoun_possessive"
                     name="<?php print esc_attr(WP_Buoy_Plugin::$prefix);?>_gender_pronoun_possessive"
                     value="<?php print esc_attr($options->get('gender_pronoun_possessive'));?>"
@@ -44,7 +44,7 @@
                     <option <?php selected($v, $options->get('sms_provider'));?>><?php print esc_html($v);?></option>
                     <?php endforeach; ?>
                 </select>
-                <span class="description"><?php esc_html_e('If you provided a phone number, you must also enter a phone company for SMS/txt messages to work.', 'buoy');?></span>
+                <span class="description"><?php esc_html_e('You must also enter a phone company for SMS/txt messages to work.', 'buoy');?></span>
             </td>
         </tr>
         <tr>
@@ -68,22 +68,21 @@
         </tr>
         <tr>
             <th>
-                <label for="<?php esc_html_e(WP_Buoy_Plugin::$prefix);?>_public_responder">
-                    <?php esc_html_e('Suggest me to anyone making a response team', 'buoy');?>
-                </label>
+                <?php esc_html_e('Crisis response', 'buoy');?>
             </th>
             <td>
-                <input type="checkbox"
-                    id="<?php print esc_attr(WP_Buoy_Plugin::$prefix);?>_public_responder"
-                    name="<?php print esc_attr(WP_Buoy_Plugin::$prefix);?>_public_responder"
-                    <?php checked($options->get('public_responder'));?>
-                    value="1"
-                />
-                <span class="description">
-                    <?php print sprintf(
-                        esc_html__('Check this box to list yourself publicly as an available crisis response team member. This enables users you do not know personally to invite you to join crisis response teams they are making.', 'buoy')
-                    );?>
-                </span>
+                <label for="<?php esc_html_e(WP_Buoy_Plugin::$prefix);?>_public_responder">
+                    <input type="checkbox"
+                        id="<?php print esc_attr(WP_Buoy_Plugin::$prefix);?>_public_responder"
+                        name="<?php print esc_attr(WP_Buoy_Plugin::$prefix);?>_public_responder"
+                        <?php checked($options->get('public_responder'));?>
+                        value="1"
+                    />
+                    <?php esc_html_e('List me publicly as an available crisis responder', 'buoy');?>
+                </label>
+                <p class="description"><?php print sprintf(
+                    esc_html__('Checking this box will add you to a directory of available crisis response team members on this Buoy. Leave this unchecked unless you are willing to advertise your presence here.', 'buoy')
+                );?></p>
             </td>
         </tr>
     </tbody>

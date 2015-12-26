@@ -27,7 +27,6 @@ class BetterAngelsPlugin {
         $this->Error = new WP_Error();
 
         add_action('admin_init', array($this, 'configureCron'));
-        add_action('current_screen', array($this, 'maybeRedirect'));
         add_action('send_headers', array($this, 'redirectShortUrl'));
         add_action('wp_before_admin_bar_render', array($this, 'addIncidentMenu'));
 
@@ -215,15 +214,6 @@ class BetterAngelsPlugin {
         print '<link rel="apple-touch-icon" href="' . plugins_url('img/apple-touch-icon-152x152.png', __FILE__) . '" />';
         // TODO: This isn't showing up, figure out why.
         //print '<link rel="apple-touch-startup-image" href="' . plugins_url('img/apple-touch-startup.png', __FILE__) . '">';
-    }
-
-    public function maybeRedirect () {
-        $screen = get_current_screen();
-        if ('dashboard_page_' . $this->prefix . 'activate-alert' === $screen->id
-            && 0 === count($this->getGuardians(get_current_user_id()))) {
-            wp_safe_redirect(admin_url('admin.php?page=' . $this->prefix . 'choose-angels&msg=no-guardians'));
-            exit();
-        }
     }
 
     public function enqueueMapsScripts ($hook) {

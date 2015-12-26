@@ -17,14 +17,6 @@ foreach ($this->Error->errors as $code => $err) {
     } // end switch
 }
 ?>
-<?php
-if (isset($_GET['msg']) && 'no-guardians' === $_GET['msg']) {
-    $notice = '<div class="error notice is-dismissible"><p>';
-    $notice .= esc_html__('You have no team members. Before you can activate an alert, you must invite at least one other user to join your personal emergency response team and they must have accepted your invitation. Use this page to choose a response team.', 'better-angels');
-    $notice .= '</p></div>';
-    print $notice;
-}
-?>
 <form method="POST" action="<?php print esc_url(admin_url('?page='.$this->prefix.'choose-angels'));?>">
 <?php wp_nonce_field($this->prefix . 'guardians', $this->prefix . 'nonce');?>
 <fieldset><legend><?php esc_html_e('Choose your team members', 'better-angels');?></legend>
