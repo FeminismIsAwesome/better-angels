@@ -235,6 +235,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
             'can_export' => false,
             'menu_icon' => plugins_url('img/icon-bw-life-preserver.svg', __FILE__)
         ));
+        add_action('load-post.php', array('WP_Buoy_Plugin', 'addHelpTab'));
         add_action('load-post-new.php', array('WP_Buoy_Plugin', 'addHelpTab'));
         add_action('load-edit.php', array('WP_Buoy_Plugin', 'addHelpTab'));
 

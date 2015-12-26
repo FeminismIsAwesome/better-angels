@@ -89,7 +89,11 @@ class WP_Screen_Help_Loader {
      * @return string[]
      */
     public function get_help_tab_files () {
-        return glob($this->_help_dir_path . "{$this->_screen->action}{$this->_screen->id}*.md");
+        $action = $this->_screen->action;
+        if (empty($action) && isset($_GET['action'])) {
+            $action = $_GET['action'];
+        }
+        return glob($this->_help_dir_path . "{$action}{$this->_screen->id}*.md");
     }
 
     /**
