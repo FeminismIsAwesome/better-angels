@@ -28,42 +28,51 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
     /**
      * The user's teams.
      *
-     * @var WP_Buoy_Team[]
+     * @var int[]
      */
     private $_teams;
 
     /**
      * Constructor.
      *
+     * If the $user_id is invalid (doesn't refer to an existing user),
+     * a `WP_Error` will be returned with an `invalid-user-id` code.
+     *
+     * @see https://developer.wordpress.org/reference/classes/WP_Error/
+     *
+     * @uses get_userdata()
+     * @uses WP_Error
+     * @uses WP_Buoy_User_Settings
+     *
      * @param int $user_id
      *
-     * @return WP_Buoy_User
+     * @return WP_Buoy_User|WP_Error
      */
     public function __construct ($user_id) {
         $this->_user = get_userdata($user_id);
+        if (false === $this->_user) {
+            return new WP_Error(
+                'invalid-user-id',
+                __('Invalid user ID.', 'buoy'),
+                $user_id
+            );
+        }
         $this->_options = new WP_Buoy_User_Settings($this->_user);
         return $this;
     }
 
     /**
-     * Gets the user's teams.
+     * Gets the user's (published) teams.
      *
-     * @return WP_Buoy_Team[]
+     * @return int[]
      */
     public function get_teams () {
-        $ids = get_posts(array(
+        $this->_teams = get_posts(array(
             'post_type' => parent::$prefix . '_team',
             'author' => $this->_user->ID,
             'posts_per_page' => -1,
             'fields' => 'ids'
         ));
-
-        $teams = array();
-        foreach ($ids as $id) {
-            $teams[] = new WP_Buoy_Team($id);
-        }
-        $this->_teams = $teams;
-
         return $this->_teams;
     }
 
@@ -90,7 +99,8 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
         // over on Stack Exchange but this is more standard for now.
         //
         // See https://wordpress.stackexchange.com/a/193841/66139
-        foreach ($this->_teams as $team) {
+        foreach ($this->_teams as $team_id) {
+            $team = new WP_Buoy_Team($team_id);
             if ($team->has_responder()) {
                 return true;
             }

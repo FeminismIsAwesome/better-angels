@@ -249,6 +249,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
 
         add_action('pre_get_posts', array(__CLASS__, 'filterTeamPostsList'));
 
+        add_action('post_updated', array(__CLASS__, 'postUpdated'), 10, 3);
         add_action("save_post_{$post_type}", array(__CLASS__, 'saveTeam'));
 
         add_action('deleted_post_meta', array(__CLASS__, 'deletedPostMeta'), 10, 4);
@@ -352,6 +353,37 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
                 'edit.php?page=' . urlencode($_GET['page'])
                 . '&post_type=' . urlencode($_GET['post_type'])
             ));
+        }
+    }
+
+    /**
+     * Checks to ensure a user doesn't leave themselves without any
+     * responders.
+     *
+     * Teams are only "active" is they are in the "publish" status.
+     * This checks a team transition and if the action leaves a user
+     * without any responders, it will re-set the team's status.
+     *
+     * @see https://developer.wordpress.org/reference/hooks/post_updated/
+     *
+     * @param int $post_id
+     * @param WP_Post $post_after
+     * @param WP_Post $post_before
+     *
+     * @return void
+     */
+    public static function postUpdated ($post_id, $post_after, $post_before) {
+        if (parent::$prefix . '_team' !== $post_after->post_type) {
+            return;
+        }
+        if ('publish' === $post_before->post_status && 'publish' !== $post_after->post_status) {
+            $buoy_user = new WP_Buoy_User($post_before->post_author);
+            if (!$buoy_user->has_responder()) {
+                wp_update_post(array(
+                    'ID' => $post_id,
+                    'post_status' => 'publish'
+                ));
+            }
         }
     }
 
