@@ -54,6 +54,31 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     }
 
     /**
+     * Checks whether or not this team is the user's default team.
+     *
+     * @uses WP_Buoy_User_Settings::get()
+     *
+     * @return bool
+     */
+    public function is_default () {
+        $usropt = new WP_Buoy_User_Settings($this->author);
+        return $this->post->ID == $usropt->get('default_team');
+    }
+
+    /**
+     * Makes this team the default team of the author.
+     *
+     * @uses WP_Buoy_User_Settings::set()
+     *
+     * @return WP_Buoy_Team
+     */
+    public function make_default () {
+        $usropt = new WP_Buoy_User_Settings($this->author);
+        $usropt->set('default_team', $this->post->ID)->save();
+        return $this;
+    }
+
+    /**
      * Gets a list of all the user IDs associated with this team.
      *
      * This does not do any checking about whether the given user ID
@@ -207,8 +232,11 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @return void
      */
     public static function register () {
-        if (!class_exists('Buoy_Team_Membership_List_Table')) { // for the admin UI
+        if (!class_exists('Buoy_Team_Membership_List_Table')) {
             require plugin_dir_path(__FILE__) . 'class-buoy-team-membership-list-table.php';
+        }
+        if (!class_exists('WP_Posts_List_Table')) {
+            require_once ABSPATH . 'wp-admin/includes/class-wp-posts-list-table.php';
         }
 
         $post_type = parent::$prefix . '_team';
@@ -251,7 +279,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         add_action('pre_get_posts', array(__CLASS__, 'filterTeamPostsList'));
 
         add_action('post_updated', array(__CLASS__, 'postUpdated'), 10, 3);
-        add_action("save_post_{$post_type}", array(__CLASS__, 'saveTeam'));
+        add_action("save_post_{$post_type}", array(__CLASS__, 'saveTeam'), 10, 2);
 
         add_action('deleted_post_meta', array(__CLASS__, 'deletedPostMeta'), 10, 4);
 
@@ -293,9 +321,20 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
             'normal',
             'high'
         );
+
+        add_meta_box(
+            'default-team',
+            esc_html__('Default Team?', 'buoy'),
+            array(__CLASS__, 'renderDefaultTeamMetaBox'),
+            null,
+            'side',
+            'low'
+        );
     }
 
     /**
+     * @param WP_Post $post
+     *
      * @return void
      */
     public static function renderAddTeamMemberMetaBox ($post) {
@@ -304,11 +343,30 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     }
 
     /**
+     * @param WP_Post $post
+     *
      * @return void
      */
     public static function renderCurrentTeamMetaBox ($post) {
         wp_nonce_field(parent::$prefix . '_choose_team', parent::$prefix . '_choose_team_nonce');
         require 'pages/current-team-meta-box.php';
+    }
+
+    /**
+     * @param WP_Post $post
+     *
+     * @return void
+     */
+    public static function renderDefaultTeamMetaBox ($post) {
+        $team = new WP_Buoy_Team($post->ID);
+        if ($team->is_default()) {
+            esc_html_e('This team is your default team.', 'buoy');
+        } else {
+            print sprintf(
+                esc_html__('No. You can make this team your default team from your %1$sTeams%2$s page.', 'buoy'),
+                '<a href="' . admin_url('edit.php?post_type=' . $post->post_type) . '">', '</a>'
+            );
+        }
     }
 
     /**
@@ -329,31 +387,65 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     }
 
     /**
+     * @see https://developer.wordpress.org/reference/hooks/current_screen/
+     *
+     * @global $_POST
+     * @global $_GET
+     *
+     * @uses WP_Screen::$post_type
+     * @uses WP_Posts_List_Table::current_action()
+     * @uses WP_Buoy_User_Settings::set()
+     * @uses WP_Buoy_User_Settings::save()
+     * @uses Buoy_Team_Membership_List_Table::current_action()
+     * @uses wp_verify_nonce()
+     * @uses WP_Buoy_Team::remove_member()
+     * @uses WP_Buoy_Team::confirm_member()
+     *
      * @return void
      */
-    public static function processTeamTableActions () {
-        $table = new Buoy_Team_Membership_List_Table(parent::$prefix . '_team');
-        $teams = array();
-        if (isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'single-' . $table->_args['plural'])) {
-                $teams[] = $_GET['team_id'];
-        } else if (isset($_POST['_wpnonce']) && wp_verify_nonce($_POST['_wpnonce'], 'bulk-' . $table->_args['plural'])) {
-            $teams = array_merge($teams, $_POST['teams']);
+    public static function processTeamTableActions ($current_screen) {
+        $post_type = parent::$prefix . '_team';
+        if ($post_type !== $current_screen->post_type) {
+            return;
         }
 
-        if (!empty($teams)) {
-            foreach ($teams as $team_id) {
-                $team = new self($team_id);
-                if ('leave' === $table->current_action()) {
-                    $team->remove_member(get_current_user_id());
-                }
-                if ('join' === $table->current_action()) {
-                    $team->confirm_member(get_current_user_id());
-                }
+        if ('post' === $current_screen->base) {
+            // The "My Teams" page.
+            $table = new WP_Posts_List_Table();
+            if ('make_default' === $table->current_action()) {
+                $team = new WP_Buoy_Team(absint($_GET['post']));
+                $team->make_default();
+                wp_safe_redirect(admin_url(
+                    "edit.php?post_type={$current_screen->post_type}"
+                ));
+                exit();
             }
-            wp_safe_redirect(admin_url(
-                'edit.php?page=' . urlencode($_GET['page'])
-                . '&post_type=' . urlencode($_GET['post_type'])
-            ));
+        } else if ("{$post_type}_page_{$post_type}_membership") {
+            // The "Team Membership" page.
+            $table = new Buoy_Team_Membership_List_Table($post_type);
+            $teams = array();
+            if (isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'single-' . $table->_args['plural'])) {
+                $teams[] = $_GET['team_id'];
+            } else if (isset($_POST['_wpnonce']) && wp_verify_nonce($_POST['_wpnonce'], 'bulk-' . $table->_args['plural'])) {
+                $teams = array_merge($teams, $_POST['teams']);
+            }
+
+            if (!empty($teams)) {
+                foreach ($teams as $team_id) {
+                    $team = new self($team_id);
+                    if ('leave' === $table->current_action()) {
+                        $team->remove_member(get_current_user_id());
+                    }
+                    if ('join' === $table->current_action()) {
+                        $team->confirm_member(get_current_user_id());
+                    }
+                }
+                wp_safe_redirect(admin_url(
+                    'edit.php?page=' . urlencode($_GET['page'])
+                    . '&post_type=' . urlencode($_GET['post_type'])
+                ));
+                exit();
+            }
         }
     }
 
@@ -367,6 +459,10 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      *
      * @see https://developer.wordpress.org/reference/hooks/post_updated/
      *
+     * @uses WP_Buoy_User::has_responder()
+     * @uses WP_Buoy_Team::is_default()
+     * @uses WP_Buoy_Team::make_default()
+     *
      * @param int $post_id
      * @param WP_Post $post_after
      * @param WP_Post $post_before
@@ -377,14 +473,25 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         if (parent::$prefix . '_team' !== $post_after->post_type) {
             return;
         }
+
+        $buoy_user = new WP_Buoy_User($post_before->post_author);
+
+        // Prevent the user from trashing their last responder team.
         if ('publish' === $post_before->post_status && 'publish' !== $post_after->post_status) {
-            $buoy_user = new WP_Buoy_User($post_before->post_author);
             if (!$buoy_user->has_responder()) {
                 wp_update_post(array(
                     'ID' => $post_id,
                     'post_status' => 'publish'
                 ));
             }
+        }
+
+        // Re-set the default team if the default team is trashed.
+        $team = new WP_Buoy_Team($post_id);
+        if ('trash' === $post_after->post_status && $team->is_default()) {
+            $teams = $buoy_user->get_teams();
+            $next_team = new WP_Buoy_Team(array_pop($teams));
+            $next_team->make_default();
         }
     }
 
@@ -403,10 +510,11 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @uses WP_Buoy_Team::add_member()
      *
      * @param int $post_id
+     * @param WP_Post $post
      *
      * @return void
      */
-    public static function saveTeam ($post_id) {
+    public static function saveTeam ($post_id, $post) {
         $team = new self($post_id);
         // Remove any team members indicated.
         if (isset($_POST[parent::$prefix . '_choose_team_nonce']) && wp_verify_nonce($_POST[parent::$prefix . '_choose_team_nonce'], parent::$prefix . '_choose_team')) {
@@ -423,6 +531,16 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
             if (false !== $user_id && !in_array($user_id, $team->get_member_ids())) {
                 $team->add_member($user_id);
             }
+        }
+
+        // If this is the user's only team, make this the default one.
+        $cnt = count(get_posts(array(
+            'post_type' => $post->post_type,
+            'author' => $post->post_author,
+            'fields' => 'ids'
+        )));
+        if (0 === $cnt) {
+            $team->make_default();
         }
     }
 
@@ -528,6 +646,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         unset($post_columns['author']);
         $post_columns['num_members']       = __('Members', 'buoy');
         $post_columns['confirmed_members'] = __('Confirmed Members', 'buoy');
+        $post_columns['default_team']      = __('Default Team?', 'buoy');
         return $post_columns;
     }
 
@@ -616,6 +735,11 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
             case 'confirmed_members':
                 print esc_html(count($team->get_confirmed_members()));
                 break;
+            case 'default_team':
+                if ($team->is_default()) {
+                    print '<strong>' . esc_html__('Default', 'buoy') . '</strong>';
+                }
+                break;
         }
     }
 
@@ -632,7 +756,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
             if ('edit-' . parent::$prefix .'_team' === $screen->id && current_user_can('edit_' . parent::$prefix . '_teams')) {
                 $query->set('author', get_current_user_id());
                 add_filter('views_' . $screen->id, array(__CLASS__, 'filterTeamPostViews'));
-                add_filter('post_row_actions', array(__CLASS__, 'removeTeamPostActionRowLinks'));
+                add_filter('post_row_actions', array(__CLASS__, 'postRowActions'), 10, 2);
             }
         }
     }
@@ -647,20 +771,29 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @return array
      */
     public static function filterTeamPostViews ($items) {
-        return array();
+        return array(); // remove all view links
     }
 
     /**
-     * Removes the "Quick Edit" link in the Team posts action row.
+     * Customizes the post row actions in the "My Teams" admin UI.
      *
      * @see https://developer.wordpress.org/reference/hooks/post_row_actions/
      *
+     * @uses WP_Buoy_Team::is_default()
+     *
      * @param array $items
+     * @param WP_Post $post
      *
      * @return array $items
      */
-    public static function removeTeamPostActionRowLinks ($items) {
-        unset($items['inline hide-if-no-js']);
+    public static function postRowActions ($items, $post) {
+        $team = new WP_Buoy_Team($post->ID);
+        if (!$team->is_default() && 'publish' === $post->post_status) {
+            $url = admin_url('post.php?post=' . $post->ID . '&action=make_default');
+            $items['default'] = '<a href="' . esc_attr($url) . '">' . __('Make default', 'buoy') . '</a>';
+        }
+
+        unset($items['inline hide-if-no-js']); // the "Quick Edit" link
         return $items;
     }
 
