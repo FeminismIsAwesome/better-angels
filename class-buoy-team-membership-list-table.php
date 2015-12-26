@@ -9,7 +9,7 @@ if (!class_exists('WP_List_Table')) {
  *
  * @package WordPress\Plugin\WP_Buoy_Plugin\Team\Administration
  */
-class Buoy_Teams_List_Table extends WP_List_Table {
+class Buoy_Team_Membership_List_Table extends WP_List_Table {
 
     /**
      * The post type being listed.
