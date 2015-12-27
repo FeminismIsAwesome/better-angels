@@ -35,9 +35,7 @@ class BetterAngelsPlugin {
 
         add_action('wp_ajax_' . $this->prefix . 'schedule-alert', array($this, 'handleScheduledAlert'));
         add_action('wp_ajax_' . $this->prefix . 'unschedule-alert', array($this, 'handleUnscheduleAlert'));
-        add_action('wp_ajax_' . $this->prefix . 'update-location', array($this, 'handleLocationUpdate'));
         add_action('wp_ajax_' . $this->prefix . 'upload-media', array($this, 'handleMediaUpload'));
-        add_action('wp_ajax_' . $this->prefix . 'dismiss-installer', array($this, 'handleDismissInstaller'));
 
         add_action('update_option_' . $this->prefix . 'settings', array($this, 'updatedSettings'), 10, 2);
 
@@ -337,33 +335,6 @@ class BetterAngelsPlugin {
         }
     }
 
-    /**
-     * Responds to Ajax POSTs containing new position information of responders/alerter.
-     * Sends back the location of all responders to this alert.
-     */
-    public function handleLocationUpdate () {
-        check_ajax_referer($this->prefix . 'incident-nonce', $this->prefix . 'nonce');
-        $new_position = $_POST['pos'];
-        $alert_post = $this->getAlert($_POST['incident_hash']);
-        $me = wp_get_current_user();
-        $mkey = ($me->ID == $alert_post->post_author) ? 'alerter_location': "responder_{$me->ID}_location";
-        update_post_meta($alert_post->ID, $this->prefix . $mkey, $new_position);
-
-        $alerter = get_userdata($alert_post->post_author);
-        $alerter_info = array(
-            'id' => $alert_post->post_author,
-            'geo' => get_post_meta($alert_post->ID, $this->prefix . 'alerter_location', true),
-            'display_name' => $alerter->display_name,
-            'avatar_url' => get_avatar_url($alerter->ID, array('size' => 32))
-        );
-        $phone_number = get_user_meta($alert_post->post_author, $this->prefix . 'sms', true);
-        if (!empty($phone_number)) {
-            $alerter_info['call'] = $phone_number;
-        }
-        $data = array($alerter_info);
-        wp_send_json_success(array_merge($data, $this->getResponderInfo($alert_post)));
-    }
-
     public function handleMediaUpload () {
         check_ajax_referer($this->prefix . 'incident-nonce', $this->prefix . 'nonce');
 
@@ -400,38 +371,6 @@ class BetterAngelsPlugin {
             ));
             wp_send_json_success($resp);
         }
-    }
-
-    public function handleDismissInstaller () {
-        check_ajax_referer($this->prefix . 'incident-nonce', $this->prefix . 'nonce');
-
-        update_user_meta(get_current_user_id(), $this->prefix . 'installer-dismissed', true);
-    }
-
-    /**
-     * Retrieves an array of responder metadata for an alert.
-     *
-     * @param object $alert_post The WP_Post object of the alert.
-     * @return array
-     */
-    public function getResponderInfo ($alert_post) {
-        $responders = $this->getIncidentResponders($alert_post);
-        $res = array();
-        foreach ($responders as $responder_id) {
-            $responder_data = get_userdata($responder_id);
-            $this_responder = array(
-                'id' => $responder_id,
-                'display_name' => $responder_data->display_name,
-                'avatar_url' => get_avatar_url($responder_id, array('size' => 32)),
-                'geo' => $this->getResponderGeoLocation($alert_post, $responder_id)
-            );
-            $phone_number = get_user_meta($responder_id, $this->prefix . 'sms', true); 
-            if (!empty($phone_number)) {
-                $this_responder['call'] = $phone_number;
-            }
-            $res[] = $this_responder;
-        }
-        return $res;
     }
 
     /**
@@ -765,57 +704,6 @@ class BetterAngelsPlugin {
         require_once 'pages/review-alert.php';
     }
 
-    public function addIncidentResponder ($alert_post, $user_id) {
-        if (!in_array($user_id, get_post_meta($alert_post->ID, $this->prefix . 'responders'))) {
-            add_post_meta($alert_post->ID, $this->prefix . 'responders', $user_id, false);
-        }
-    }
-
-    /**
-     * Sets the geo-located metadata for a responer in the context of an alert. The responder is the current user.
-     *
-     * @param object $alert_post The WP post object of the alert incident.
-     * @param array $geo An array with `latitude` and `longitude` keys.
-     * @return void
-     */
-    public function setResponderGeoLocation ($alert_post, $geo) {
-        update_post_meta($alert_post->ID, $this->prefix . 'responder_' . get_current_user_id() . '_location', $geo);
-    }
-    public function getResponderGeoLocation ($alert_post, $user_id) {
-        return get_post_meta($alert_post->ID, $this->prefix . 'responder_' . $user_id . '_location', true);
-    }
-
-    /**
-     * Retrieves the list of responders for a given alert.
-     *
-     * @param object $alert_post The WP Post object of the alert.
-     * @return array
-     */
-    public function getIncidentResponders ($alert_post) {
-        return get_post_meta($alert_post->ID, $this->prefix . 'responders', false);
-    }
-
-    public function renderIncidentChatPage () {
-        $alert_post = $this->getAlert(urldecode($_GET[$this->prefix . 'incident_hash']));
-        if (!$alert_post || !current_user_can('read') || !isset($_GET[$this->prefix . 'nonce']) || !wp_verify_nonce($_GET[$this->prefix . 'nonce'], "{$this->prefix}chat")) {
-            esc_html_e('You do not have sufficient permissions to access this page.', 'better-angels');
-            return;
-        }
-        if (get_current_user_id() != $alert_post->post_author) {
-            $this->addIncidentResponder($alert_post, get_current_user_id());
-            // TODO: Clean this up a bit, maybe the JavaScript should send JSON data?
-            if (!empty($_POST[$this->prefix . 'location'])) {
-                $p = explode(',', $_POST[$this->prefix . 'location']);
-                $responder_geo = array(
-                    'latitude' => $p[0],
-                    'longitude' => $p[1]
-                );
-                $this->setResponderGeoLocation($alert_post, $responder_geo);
-            }
-        }
-        require_once 'pages/incident-chat.php';
-    }
-
     public function renderChooseAngelsPage () {
         if (!current_user_can('read')) {
             wp_die(__('You do not have sufficient permissions to access this page.', 'better-angels'));
@@ -851,24 +739,6 @@ class BetterAngelsPlugin {
         require_once 'pages/confirm-guardianship.php';
     }
 
-    public function renderSafetyInfoPage () {
-        if (!current_user_can('read')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'better-angels'));
-        }
-        $options = get_option($this->prefix . 'settings');
-        print $options['safety_info']; // TODO: Can we harden against XSS here?
-    }
-
-    public function renderOptionsPage () {
-        if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'better-angels'));
-        }
-        $options = get_option($this->prefix . 'settings');
-
-        require_once 'pages/options.php';
-
-        $this->showDonationAppeal();
-    }
 }
 
 new BetterAngelsPlugin();

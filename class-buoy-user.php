@@ -172,6 +172,28 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
     }
 
     /**
+     * Retrieves info about this user's last known state associated
+     * with an alert that they have responded to.
+     *
+     * @param int $alert_id
+     *
+     * @return array
+     */
+    public function get_incident_response_info ($alert_id) {
+        $alert = new WP_Buoy_Alert($alert_id);
+        $r = array(
+            'id' => $this->wp_user->ID,
+            'display_name' => $this->wp_user->display_name,
+            'avatar_url' => get_avatar_url($this->wp_user->ID, array('size' => 32)),
+            'geo' => $alert->get_responder_geo($this->wp_user->ID)
+        );
+        if ($phone = $this->get_phone_number()) {
+            $r['call'] = $phone;
+        }
+        return $r;
+    }
+
+    /**
      * Gets a user's phone number, without dashes or other symbols.
      *
      * @uses WP_Buoy_User::get_option()
@@ -260,7 +282,7 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
      * @return void
      */
     public static function saveProfile ($user_id) {
-        $options = new WP_Buoy_User_Settings(get_userdata($user_id));
+        $options = new WP_Buoy_User_Settings($user_id);
         $options
             ->set('gender_pronoun_possessive', sanitize_text_field($_POST[WP_Buoy_Plugin::$prefix.'_gender_pronoun_possessive']))
             ->set('phone_number', sanitize_text_field($_POST[WP_Buoy_Plugin::$prefix . '_phone_number']))

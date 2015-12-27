@@ -282,6 +282,94 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     }
 
     /**
+     * Retrieves a list of users who have responded to this alert.
+     *
+     * @return int[]
+     */
+    public function get_responders () {
+        return get_post_meta($this->wp_post->ID, parent::$prefix . '_responders');
+    }
+
+    /**
+     * Determine whether a user has responded to the alert.
+     *
+     * @param int $user_id
+     *
+     * @return bool
+     */
+    public function is_responder ($user_id) {
+        return in_array($user_id, $this->get_responders());
+    }
+
+    /**
+     * Adds a responder to this alert.
+     *
+     * @uses WP_Buoy_Alert::is_responder()
+     * @uses add_post_meta()
+     *
+     * @param int $user_id
+     *
+     * @return WP_Buoy_Alert
+     */
+    public function add_responder ($user_id) {
+        if (!$this->is_responder($user_id)) {
+            add_post_meta($this->wp_post->ID, parent::$prefix . '_responders', $user_id, false);
+        }
+        return $this;
+    }
+
+    /**
+     * Saves new geolocation data (lat/lon pair) for a responder.
+     *
+     * @uses update_post_meta()
+     *
+     * @param int $user_id
+     * @param float[] $geo
+     *
+     * @return WP_Buoy_Alert
+     */
+    public function set_responder_geo ($user_id, $geo) {
+        update_post_meta($this->wp_post->ID, parent::$prefix . "_responder_{$user_id}_location", $geo);
+        return $this;
+    }
+
+    /**
+     * Retrieves the current geolocation coords of a given responder.
+     *
+     * @uses get_post_meta()
+     *
+     * @param int $user_id
+     *
+     * @return float[]
+     */
+    public function get_responder_geo ($user_id) {
+        return get_post_meta($this->wp_post->ID, parent::$prefix . "_responder_{$user_id}_location", true);
+    }
+
+    /**
+     * Retrieves an array containing information about all responders
+     * and the alerter involved in this alert.
+     *
+     * @uses WP_Buoy_Alert::get_responders()
+     * @uses get_avatar_url()
+     * @uses WP_Buoy_Alert::get_responder_geo()
+     * @uses WP_Buoy_User::get_phone_number()
+     *
+     * @return array
+     */
+    public function get_incident_state () {
+        $responders = $this->get_responders();
+        $incident_state = array();
+        foreach ($responders as $id) {
+            $responder = new WP_Buoy_User($id);
+            $incident_state[] = $responder->get_incident_response_info($this->wp_post->ID);
+        }
+        $alerter = new WP_Buoy_User($this->wp_post->post_author);
+        $incident_state[] = $alerter->get_incident_response_info($this->wp_post->ID);
+        return $incident_state;
+    }
+
+    /**
      * Makes a random lookup hash for this alert.
      *
      * @uses WP_Buoy_Alert::get_random_seed()
@@ -358,6 +446,8 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
         add_action('admin_menu', array(__CLASS__, 'registerAdminMenu'));
 
         add_action('wp_ajax_' . parent::$prefix . '_new_alert', array(__CLASS__, 'handleNewAlert'));
+        add_action('wp_ajax_' . parent::$prefix . '_update_location', array(__CLASS__, 'handleLocationUpdate'));
+        add_action('wp_ajax_' . parent::$prefix . '_dismiss_installer', array(__CLASS__, 'handleDismissInstaller'));
 
         add_action('publish_' . parent::$prefix . '_alert', array('WP_Buoy_Notification', 'publishAlert'), 10, 2);
     }
@@ -474,6 +564,18 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
             esc_html_e('You do not have sufficient permissions to access this page.', 'buoy');
             return;
         }
+        if (get_current_user_id() != $alert->wp_post->post_author) {
+            $alert->add_responder(get_current_user_id());
+            // TODO: Clean this up a bit, maybe the JavaScript should send JSON data?
+            if (!empty($_POST[parent::$prefix . '_location'])) {
+                $p = explode(',', $_POST[parent::$prefix . '_location']);
+                $geo = array(
+                    'latitude' => $p[0],
+                    'longitude' => $p[1]
+                );
+                $alert->set_responder_geo(get_current_user_id(), $geo);
+            }
+        }
         require_once 'pages/incident-chat.php';
     }
 
@@ -523,6 +625,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
      * Enqueues the "webapp/native" installer scripts if the user has
      * not previously dismissed this functionality.
      *
+     * @uses get_current_user_id()
      * @uses WP_Buoy_User_Settings::get()
      * @uses wp_enqueue_script
      * @uses wp_enqueue_style
@@ -530,7 +633,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
      * @return void
      */
     public static function addInstallerScripts () {
-        $usropt = new WP_Buoy_User_Settings(get_userdata(get_current_user_id()));
+        $usropt = new WP_Buoy_User_Settings(get_current_user_id());
         if (!$usropt->get('installer_dismissed')) {
             wp_enqueue_script(
                 parent::$prefix . '-install-webapp',
@@ -654,7 +757,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
             'i18n_responding_to_alert' => __('Responding to alert', 'buoy'),
             'i18n_schedule_alert' => __('Schedule alert', 'buoy'),
             'i18n_scheduling_alert' => __('Scheduling alert', 'buoy'),
-            'incident_nonce' => wp_create_nonce(parent::$prefix . '-incident-nonce')
+            'incident_nonce' => wp_create_nonce(parent::$prefix . '_incident_nonce')
         );
     }
 
@@ -731,6 +834,54 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
             exit();
         }
     }
+
+    /**
+     * Responds to Ajax POSTs containing new position information of
+     * responders/alerter, sends back the location of all of this
+     * alert's responders.
+     *
+     * @global $_POST
+     *
+     * @todo Should the WP_Buoy_Alert object be responsible for handling
+     *       metadata associated with responder location updates? Right
+     *       now, this is all just manually updates of postmeta. Not the
+     *       best way to this in the long run, methinks.
+     *
+     * @return void
+     */
+    public static function handleLocationUpdate () {
+        check_ajax_referer(parent::$prefix . '_incident_nonce', parent::$prefix . '_nonce');
+
+        if (isset($_POST['incident_hash'])) {
+            $alert = new WP_Buoy_Alert($_POST['incident_hash']);
+            if (isset($_POST['pos'])) {
+                $alert->set_responder_geo(get_current_user_id(), $_POST['pos']);
+                wp_send_json_success($alert->get_incident_state());
+            }
+        }
+        wp_send_json_error();
+    }
+
+    /**
+     * Saves a flag in the user's options that tells Buoy not to show
+     * the "webapp installer" scripts again.
+     *
+     * @uses check_ajax_referer()
+     * @uses get_current_user_id()
+     * @uses WP_Buoy_User_Settings::set()
+     * @uses WP_Buoy_User_Settings::save()
+     * @uses wp_send_json_success()
+     *
+     * @return void
+     */
+    public static function handleDismissInstaller () {
+        check_ajax_referer(parent::$prefix . '_incident_nonce', parent::$prefix . '_nonce');
+
+        $usropt = new WP_Buoy_User_Settings(get_current_user_id());
+        $usropt->set('installer_dismissed', true)->save();
+        wp_send_json_success();
+    }
+
 
     /**
      * Returns an HTML structure containing nested lists and list items

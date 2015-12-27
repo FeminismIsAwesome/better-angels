@@ -19,7 +19,7 @@ var BUOY = (function () {
 
     var updateMyLocation = function (position) {
         var data = {
-            'action': 'buoy_update-location',
+            'action': 'buoy_update_location',
             'pos': position.coords,
             'incident_hash': incident_hash,
             'buoy_nonce': buoy_vars.incident_nonce
@@ -452,7 +452,7 @@ var BUOY = (function () {
         jQuery('#dismiss-installer-btn').on('click', function () {
             jQuery('#install-webapp-btn').popover('hide');
             jQuery.post(ajaxurl, {
-                'action': 'buoy_dismiss-installer',
+                'action': 'buoy_dismiss_installer',
                 'buoy_nonce': buoy_vars.incident_nonce,
             });
         });
