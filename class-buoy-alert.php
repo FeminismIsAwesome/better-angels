@@ -437,7 +437,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     public static function renderIncidentChatPage () {
         $alert = new WP_Buoy_Alert(urldecode($_GET[parent::$prefix . '_hash']));
         if (!$alert->wp_post || !current_user_can('read') || !isset($_GET[parent::$prefix . '_nonce']) || !wp_verify_nonce($_GET[parent::$prefix . '_nonce'], parent::$prefix . '_chat')) {
-            esc_html_e('You do not have sufficient permissions to access this page.', 'better-angels');
+            esc_html_e('You do not have sufficient permissions to access this page.', 'buoy');
             return;
         }
         require_once 'pages/incident-chat.php';
@@ -512,7 +512,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
 
     /**
      * Enqueues the Bootstrap CSS and JavaScript framework resources,
-     * along with jQuery library plugins used for the Alert UI.
+     * along with jQuery and Google library plugins used for Alert UI.
      *
      * @todo Should this kind of utility loader be moved into its own class?
      *
@@ -534,13 +534,21 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
 
         // Enqueue BootstrapCSS/JS framework.
         wp_enqueue_style(
-            parent::$prefix . '-bootstrap',
-            'https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css'
+            'bootstrap-css',
+            'https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css'
         );
         wp_enqueue_script(
-            parent::$prefix . '-bootstrap',
-            'https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js',
-            false,
+            'bootstrap-js',
+            'https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js',
+            array(),
+            null,
+            true
+        );
+
+        wp_enqueue_script(
+            'google-maps-api',
+            'https://maps.googleapis.com/maps/api/js?language=' . get_locale(),
+            array(),
             null,
             true
         );
@@ -550,6 +558,43 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
             parent::$prefix . '-pulse-loader',
             plugins_url('includes/pulse-loader.css', __FILE__)
         );
+
+        if (is_ssl() || WP_Buoy_Settings::get_instance()->get('debug')) {
+            add_filter('style_loader_tag', array(__CLASS__, 'addIntegrityAttribute'), 9999, 2);
+            add_filter('script_loader_tag', array(__CLASS__, 'addIntegrityAttribute'), 9999, 2);
+        }
+    }
+
+    /**
+     * Sets subresource integrity attributes on elements loaded via CDN.
+     *
+     * @see https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity
+     * @see https://developer.wordpress.org/reference/hooks/style_loader_tag/
+     * @see https://developer.wordpress.org/reference/hooks/script_loader_tag/
+     *
+     * @param string $html
+     * @param string $handle
+     *
+     * @return string
+     */
+    public static function addIntegrityAttribute ($html, $handle) {
+        $integrities = array(
+            // sha*-$hash => handle
+            'sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7' => 'bootstrap-css',
+            'sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS' => 'bootstrap-js'
+            // TODO: Figure out if the Google Maps API can also be SRI-enabled
+        );
+        if ($integrity = array_search($handle, $integrities)) {
+            $sri_att = ' crossorigin="anonymous" integrity="' . $integrity . '"';
+            $insertion_pos = strpos($html, '>');
+            // account for self-closing tags
+            if (0 === strpos($html, '<link ')) {
+                $insertion_pos--;
+                $sri_att .= ' ';
+            }
+            return substr($html, 0, $insertion_pos) . $sri_att . substr($html, $insertion_pos);
+        }
+        return $html;
     }
 
     /**
@@ -678,13 +723,13 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
             $html .= '<h4 class="list-group-item-heading">';
             switch ($type) {
                 case 'video':
-                    $html .= esc_html('Video attachments', 'better-angels');
+                    $html .= esc_html('Video attachments', 'buoy');
                     break;
                 case 'image':
-                    $html .= esc_html('Image attachments', 'better-angels');
+                    $html .= esc_html('Image attachments', 'buoy');
                     break;
                 case 'audio':
-                    $html .= esc_html('Audio attachments', 'better-angels');
+                    $html .= esc_html('Audio attachments', 'buoy');
                     break;
             }
             $html .= ' <span class="badge">' . count($set) . '</span>';
@@ -697,12 +742,12 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
                 $html .= self::getIncidentMediaHtml($type, $post->ID);
                 $html .= '<p class="list-group-item-text">';
                 $html .= sprintf(
-                    esc_html_x('uploaded %1$s ago', 'Example: uploaded 5 mins ago', 'better-angels'),
+                    esc_html_x('uploaded %1$s ago', 'Example: uploaded 5 mins ago', 'buoy'),
                     human_time_diff(strtotime($post->post_date_gmt))
                 );
                 $u = get_userdata($post->post_author);
                 $html .= ' ' . sprintf(
-                    esc_html_x('by %1$s', 'a byline, like "written by Bob"', 'better-angels'),
+                    esc_html_x('by %1$s', 'a byline, like "written by Bob"', 'buoy'),
                     $u->display_name
                 );
                 $html .= '</p>';

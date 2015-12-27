@@ -31,7 +31,6 @@ class BetterAngelsPlugin {
         add_action('wp_before_admin_bar_render', array($this, 'addIncidentMenu'));
 
         add_action('admin_enqueue_scripts', array($this, 'enqueueAdminScripts'));
-        add_action('admin_enqueue_scripts', array($this, 'enqueueMapsScripts'));
         add_action('admin_head-dashboard_page_' . $this->prefix . 'activate-alert', array($this, 'doAdminHeadActivateAlert'));
         add_action('admin_notices', array($this, 'showAdminNotices'));
 
@@ -196,22 +195,6 @@ class BetterAngelsPlugin {
         print '<link rel="apple-touch-icon" href="' . plugins_url('img/apple-touch-icon-152x152.png', __FILE__) . '" />';
         // TODO: This isn't showing up, figure out why.
         //print '<link rel="apple-touch-startup-image" href="' . plugins_url('img/apple-touch-startup.png', __FILE__) . '">';
-    }
-
-    public function enqueueMapsScripts ($hook) {
-        $to_hook = array( // list of pages where maps API is needed
-            'dashboard_page_' . $this->prefix . 'incident-chat',
-            'dashboard_page_' . $this->prefix . 'review-alert'
-        );
-        if ($this->isAppPage($hook, $to_hook)) {
-            wp_enqueue_script(
-                $this->prefix . 'maps-api',
-                'https://maps.googleapis.com/maps/api/js?language=' . get_locale(),
-                $this->prefix . 'script',
-                null, // do not set a WP version!
-                true
-            );
-        }
     }
 
     public function showAdminNotices () {
