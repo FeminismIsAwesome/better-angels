@@ -2,10 +2,10 @@
 
 #activate-alert-form { height: 100%; }
 .dashboard_page_buoy_activate_alert #wpbody-content,
-.dashboard_page_buoy_incident-chat #wpbody-content {
+.dashboard_page_buoy_chat #wpbody-content {
     height: calc(100vh - 32px); /* 32px is height of WP's fixed-position toolbar */
 }
-.dashboard_page_buoy_incident-chat #wpcontent {
+.dashboard_page_buoy_chat #wpcontent {
     padding: 0;
 }
 .dashboard_page_buoy_activate_alert #activate-msg-btn-submit,
@@ -56,26 +56,18 @@
     margin: 20px 0;
 }
 
-.dashboard_page_buoy_incident-chat #alert-map { margin-bottom: 0; }
-.dashboard_page_buoy_incident-chat #map-container,
-.dashboard_page_buoy_review-alert #map-container {
+.dashboard_page_buoy_chat #alert-map { margin-bottom: 0; }
+.dashboard_page_buoy_chat #map-container,
+.dashboard_page_buoy_review_alert #map-container {
     height: 250px;
 }
-.dashboard_page_buoy_incident-chat #map-container {
+.dashboard_page_buoy_chat #map-container {
      display: none;
      padding: 0;
  }
-.dashboard_page_buoy_incident-chat #map,
-.dashboard_page_buoy_review-alert #map {
+.dashboard_page_buoy_chat #map,
+.dashboard_page_buoy_review_alert #map {
     height: 100%;
-}
-
-.dashboard_page_buoy_review-alert .submit {
-    display: flex;
-}
-.dashboard_page_buoy_review-alert .submit input {
-    flex-grow: 1;
-    margin: 0 1rem;
 }
 
 #wpadminbar #wp-admin-bar-buoy_active-incidents-menu {
@@ -105,14 +97,4 @@
     #incident-media-group .dropdown-menu {
         top: 102px;
     }
-}
-
-#install-webapp-btn {
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    margin-left: -15px;
-    width: 0;
-    height: 0;
-    border:0;
 }

@@ -20,7 +20,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
      *
      * @var WP_Post
      */
-    private $_post;
+    public $wp_post;
 
     /**
      * The author of the alert.
@@ -113,7 +113,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
      */
     public function load ($lookup) {
         if (get_post_status($lookup)) {
-            $this->_post = get_post($lookup);
+            $this->wp_post = get_post($lookup);
         } else if (strlen($lookup) > 7) {
             $posts = get_posts(array(
                 'post_type' => parent::$prefix . '_alert',
@@ -132,15 +132,17 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
                 )
             ));
             if (!empty($posts)) {
-                $this->_post = array_pop($posts);
+                $this->wp_post = array_pop($posts);
             }
         }
 
-        if ($this->_post) {
+        if ($this->wp_post) {
             $this->set_hash();
             $this->set_chat_room_name();
-            $this->_user = get_userdata($this->_post->post_author);
-            $this->_teams = get_post_meta($this->_post->ID, parent::$prefix . '_teams');
+            $this->_user = get_userdata($this->wp_post->post_author);
+            $this->_teams = array_map(
+                'absint', get_post_meta($this->wp_post->ID, parent::$prefix . '_teams', true)
+            );
         }
 
         return $this;
@@ -159,7 +161,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     public function save () {
         $result = wp_insert_post($this->_postarr, true);
         if (is_int($result)) {
-            $this->_post = get_post($result);
+            $this->wp_post = get_post($result);
             $this->set_hash();
             $this->set_chat_room_name();
         }
@@ -193,7 +195,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
         $default_meta = array(
             parent::$prefix . '_hash' => $this->make_hash(),
             parent::$prefix . '_chat_room_name' => $this->make_chat_room_name(),
-            parent::$prefix . '_teams' => $alerter->get_default_team()
+            parent::$prefix . '_teams' => array($alerter->get_default_team())
         );
 
         if (!isset($postarr['meta_input'])) {
@@ -223,13 +225,41 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     }
 
     /**
+     * Checks whether a user is allowed to respond to this alert.
+     *
+     * A user is allowed to respond to an alert if they are listed as
+     * a "confirmed" member in one of the teams associated with this
+     * alert.
+     *
+     * @todo Currently, an alert dynamically looks up who is on the
+     *       teams associated with it. This should be changed so it
+     *       keeps a snapshotted list of the confirmed team members
+     *       at the time the alert was created. This will prevent a
+     *       user from being added to a team (and thus granted access
+     *       to an alert) *after* the alert has been sent out.
+     *
+     * @param int $user_id
+     *
+     * @return bool
+     */
+    public function can_respond ($user_id) {
+        foreach ($this->get_teams() as $team_id) {
+            $team = new WP_Buoy_Team($team_id);
+            if (in_array($user_id, $team->get_confirmed_members())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Loads the alert hash from the database.
      *
      * @return void
      */
     private function set_hash () {
         foreach ($this->_hash_keys as $k) {
-            $prev_hash = get_post_meta($this->_post->ID, $k, true);
+            $prev_hash = sanitize_text_field(get_post_meta($this->wp_post->ID, $k, true));
             if ($prev_hash) {
                 $this->_hash = $prev_hash;
                 break;
@@ -241,7 +271,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
      * @return void
      */
     private function set_chat_room_name () {
-        $this->_chat_room_name = get_post_meta($this->_post->ID, parent::$prefix . '_chat_room_name', true);
+        $this->_chat_room_name = sanitize_text_field(get_post_meta($this->wp_post->ID, parent::$prefix . '_chat_room_name', true));
     }
 
     /**
@@ -383,16 +413,33 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     }
 
     /**
+     * @global $_GET
+     *
      * @return void
      */
     public static function renderReviewAlertPage () {
+        if (empty($_GET[parent::$prefix . '_hash'])) {
+            return;
+        }
+        $alert = new WP_Buoy_Alert($_GET[parent::$prefix . '_hash']);
+        if (!current_user_can('read') || !$alert->can_respond(get_current_user_id())) {
+            esc_html_e('You do not have sufficient permissions to access this page.', 'buoy');
+            return;
+        }
         require_once 'pages/review-alert.php';
     }
 
     /**
+     * @global $_GET
+     *
      * @return void
      */
     public static function renderIncidentChatPage () {
+        $alert = new WP_Buoy_Alert(urldecode($_GET[parent::$prefix . '_hash']));
+        if (!$alert->wp_post || !current_user_can('read') || !isset($_GET[parent::$prefix . '_nonce']) || !wp_verify_nonce($_GET[parent::$prefix . '_nonce'], parent::$prefix . '_chat')) {
+            esc_html_e('You do not have sufficient permissions to access this page.', 'better-angels');
+            return;
+        }
         require_once 'pages/incident-chat.php';
     }
 
@@ -565,6 +612,9 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
             $meta_input['geo_latitude'] = $alert_position['latitude'];
             $meta_input['geo_longitude'] = $alert_position['longitude'];
         }
+        if (isset($_POST['teams']) && is_array($_POST['teams'])) {
+            $meta_input[parent::$prefix . '_teams'] = array_map('absint', $alert_teams);
+        }
 
         // Create and publish the new alert.
         $buoy_user = new WP_Buoy_User(get_current_user_id());
@@ -601,6 +651,101 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
             wp_safe_redirect(html_entity_decode($next_url));
             exit();
         }
+    }
+
+    /**
+     * Returns an HTML structure containing nested lists and list items
+     * referring to any media attached to the given post ID.
+     *
+     * @param int $post_id The post ID from which to fetch attached media.
+     *
+     * @uses WP_Buoy_Alert::getIncidentMediaHtml()
+     *
+     * @return string HTML ready for insertion into an `<ul>` element.
+     */
+    private static function getIncidentMediaList ($post_id) {
+        $html = '';
+
+        $posts = array(
+            'video' => get_attached_media('video', $post_id),
+            'image' => get_attached_media('image', $post_id),
+            'audio' => get_attached_media('audio', $post_id)
+        );
+
+        foreach ($posts as $type => $set) {
+            $html .= '<li class="' . esc_attr($type) . ' list-group">';
+            $html .= '<div class="list-group-item">';
+            $html .= '<h4 class="list-group-item-heading">';
+            switch ($type) {
+                case 'video':
+                    $html .= esc_html('Video attachments', 'better-angels');
+                    break;
+                case 'image':
+                    $html .= esc_html('Image attachments', 'better-angels');
+                    break;
+                case 'audio':
+                    $html .= esc_html('Audio attachments', 'better-angels');
+                    break;
+            }
+            $html .= ' <span class="badge">' . count($set) . '</span>';
+            $html .= '</h4>';
+            $html .= '<ul>';
+
+            foreach ($set as $post) {
+                $html .= '<li id="incident-media-'. $post->ID .'" class="list-group-item">';
+                $html .= '<h5 class="list-group-item-header">' . esc_html($post->post_title) . '</h5>';
+                $html .= self::getIncidentMediaHtml($type, $post->ID);
+                $html .= '<p class="list-group-item-text">';
+                $html .= sprintf(
+                    esc_html_x('uploaded %1$s ago', 'Example: uploaded 5 mins ago', 'better-angels'),
+                    human_time_diff(strtotime($post->post_date_gmt))
+                );
+                $u = get_userdata($post->post_author);
+                $html .= ' ' . sprintf(
+                    esc_html_x('by %1$s', 'a byline, like "written by Bob"', 'better-angels'),
+                    $u->display_name
+                );
+                $html .= '</p>';
+                $html .= '</li>';
+            }
+
+            $html .= '</ul>';
+            $html .= '</div>';
+            $html .= '</li>';
+        }
+
+        return $html;
+    }
+
+    /**
+     * Gets the correct HTML embeds/elements for a given media type.
+     *
+     * @param string $type One of 'video', 'audio', or 'image'
+     * @param int $post_id The WP post ID of the attachment media.
+     *
+     * @return string
+     */
+    private static function getIncidentMediaHtml ($type, $post_id) {
+        $html = '';
+        switch ($type) {
+            case 'video':
+                $html .= wp_video_shortcode(array(
+                    'src' => wp_get_attachment_url($post_id)
+                ));;
+                break;
+            case 'image':
+                $html .= '<a href="' . wp_get_attachment_url($post_id) . '" target="_blank">';
+                $html .= wp_get_attachment_image($post_id);
+                $html .= '</a>';
+                break;
+            case 'audio':
+            default:
+                $html .= wp_audio_shortcode(array(
+                    'src' => wp_get_attachment_url($post_id)
+                ));
+                break;
+        }
+        return $html;
     }
 
 }
