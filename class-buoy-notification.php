@@ -87,6 +87,65 @@ class WP_Buoy_Notification extends WP_Buoy_Plugin {
     }
 
     /**
+     * Runs whenever an alert is published. Sends notifications to an
+     * alerter's response team informing them of the alert.
+     *
+     * @param int $post_id
+     * @param WP_Post $post
+     *
+     * @return void
+     */
+    public static function publishAlert ($post_id, $post) {
+        $alert = new WP_Buoy_Alert($post_id);
+
+        $responder_link = admin_url(
+            '?page=' . parent::$prefix . '_review_alert'
+            . '&' . parent::$prefix . '_hash=' . $alert->get_hash()
+        );
+        $responder_short_link = home_url(
+            '?' . parent::$prefix . '_alert='
+            . substr($alert->get_hash(), 0, 8)
+        );
+        $subject = $post->post_title;
+
+        $alerter = get_userdata($post->post_author);
+        $headers = array(
+            "From: \"{$alerter->display_name}\" <{$alerter->user_email}>"
+        );
+
+        foreach ($alert->get_teams() as $team_id) {
+            $team = new WP_Buoy_Team($team_id);
+            foreach ($team->get_confirmed_members() as $user_id) {
+                $responder = new WP_Buoy_User($user_id);
+
+                // TODO: Write a more descriptive message.
+                wp_mail($responder->wp_user->user_email, $subject, $responder_link, $headers);
+
+                $smsemail = $responder->get_sms_email();
+                if (!empty($smsemail)) {
+                    $sms_max_length = 160;
+                    // We need to ensure that SMS notifications fit within the 160 character
+                    // limit of SMS transmissions. Since we're using email-to-SMS gateways,
+                    // a subject will be wrapped inside of parentheses, making it two chars
+                    // longer than whatever its original contents are. Then a space is
+                    // inserted between the subject and the message body. The total length
+                    // of strlen($subject) + 2 + 1 + strlen($message) must be less than 160.
+                    $extra_length = 3; // two parenthesis and a space
+                    // but in practice, there seems to be another 7 chars eaten up somewhere?
+                    $extra_length += 7;
+                    $url_length = strlen($responder_short_link);
+                    $full_length = strlen($subject) + $extra_length + $url_length;
+                    if ($full_length > $sms_max_length) {
+                        // truncate the $subject since the link must be fully included
+                        $subject = substr($subject, 0, $sms_max_length - $url_length - $extra_length);
+                    }
+                    wp_mail($smsemail, $subject, $responder_short_link, $headers);
+                }
+            }
+        }
+    }
+
+    /**
      * Utility function to return the domain name portion of a given
      * telco's email-to-SMS gateway address.
      *
@@ -98,7 +157,7 @@ class WP_Buoy_Notification extends WP_Buoy_Plugin {
      *
      * @return string
      */
-    public static function getSmsToEmailGatewayDomain ($provider) {
+    public static function getEmailToSmsGatewayDomain ($provider) {
         $provider_domains = array(
             'AT&T' => '@txt.att.net',
             'Alltel' => '@message.alltel.com',

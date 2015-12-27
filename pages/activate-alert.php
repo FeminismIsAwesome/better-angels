@@ -1,6 +1,6 @@
 <?php $options = WP_Buoy_Settings::get_instance();?>
 <form id="activate-alert-form" action="<?php print esc_attr(admin_url('admin-ajax.php'));?>" method="POST">
-    <?php wp_nonce_field(parent::$prefix . '-activate-alert', parent::$prefix . '_nonce');?>
+    <?php wp_nonce_field(parent::$prefix . '_new_alert', parent::$prefix . '_nonce');?>
     <input type="hidden"
         name="action"
         value="<?php print esc_attr(parent::$prefix)?>_new_alert"

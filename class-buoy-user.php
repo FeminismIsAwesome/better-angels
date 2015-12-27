@@ -16,7 +16,7 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
      *
      * @var WP_User
      */
-    private $_user;
+    public $wp_user;
 
     /**
      * The user's plugin settings.
@@ -49,15 +49,15 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
      * @return WP_Buoy_User|WP_Error
      */
     public function __construct ($user_id) {
-        $this->_user = get_userdata($user_id);
-        if (false === $this->_user) {
+        $this->wp_user = get_userdata($user_id);
+        if (false === $this->wp_user) {
             return new WP_Error(
                 'invalid-user-id',
                 __('Invalid user ID.', 'buoy'),
                 $user_id
             );
         }
-        $this->_options = new WP_Buoy_User_Settings($this->_user);
+        $this->_options = new WP_Buoy_User_Settings($this->wp_user);
         return $this;
     }
 
@@ -69,11 +69,20 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
     public function get_teams () {
         $this->_teams = get_posts(array(
             'post_type' => parent::$prefix . '_team',
-            'author' => $this->_user->ID,
+            'author' => $this->wp_user->ID,
             'posts_per_page' => -1,
             'fields' => 'ids'
         ));
         return $this->_teams;
+    }
+
+    /**
+     * Gets the user's default team.
+     *
+     * @return int
+     */
+    public function get_default_team () {
+        return $this->get_option('default_team');
     }
 
     /**
@@ -123,11 +132,55 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
      * Gets the possessive gender pronoun of a user.
      *
      * @uses WP_Buoy_User::get_option()
+     * @uses sanitize_text_field()
      *
      * @return string
      */
     public function get_gender_pronoun_possessive () {
-        return $this->get_option('gender_pronoun_possessive', __('their', 'buoy'));
+        return sanitize_text_field($this->get_option('gender_pronoun_possessive', __('their', 'buoy')));
+    }
+
+    /**
+     * Get a user's pre-defined crisis message, or a default message if empty.
+     *
+     * @uses WP_Buoy_User::get_option()
+     * @uses sanitize_text_field()
+     *
+     * @return string
+     */
+    public function get_crisis_message () {
+        return sanitize_text_field($this->get_option('crisis_message', __('Please help!', 'buoy')));
+    }
+
+    /**
+     * Gets a user's email-to-SMS address based on their profile.
+     *
+     * @return string
+     */
+    public function get_sms_email () {
+        $sms_email = '';
+
+        $sms = $this->get_phone_number();
+        $provider = $this->get_option('sms_provider');
+
+        if (!empty($sms) && !empty($provider)) {
+            $sms_email = $sms . WP_Buoy_Notification::getEmailToSmsGatewayDomain($provider);
+        }
+
+
+        return $sms_email;
+    }
+
+    /**
+     * Gets a user's phone number, without dashes or other symbols.
+     *
+     * @uses WP_Buoy_User::get_option()
+     * @uses sanitize_text_field()
+     *
+     * @return string
+     */
+    private function get_phone_number () {
+        return sanitize_text_field(preg_replace('/[^0-9]/', '', $this->get_option('phone_number', '')));
     }
 
     /**
@@ -176,7 +229,7 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
             // TODO: This should be a bit cleaner. Maybe part of the WP_Buoy_Notification class?
             $subject = __('You no longer have crisis responders.', 'buoy');
             $msg = __('Either you have removed the last of your Buoy crisis response team members, or they have all left your teams. You will not be able to send a Buoy alert to anyone until you add more people to your team(s).', 'buoy');
-            wp_mail($buoy_user->_user->user_email, $subject, $msg);
+            wp_mail($buoy_user->wp_user->user_email, $subject, $msg);
         }
     }
 

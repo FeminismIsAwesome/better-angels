@@ -737,7 +737,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
                 break;
             case 'default_team':
                 if ($team->is_default()) {
-                    print '<strong>' . esc_html__('Default', 'buoy') . '</strong>';
+                    print '<strong>' . esc_html__('Yes', 'buoy') . '</strong>';
                 }
                 break;
         }

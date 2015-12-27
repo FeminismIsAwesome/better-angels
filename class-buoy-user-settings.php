@@ -63,12 +63,15 @@ class WP_Buoy_User_Settings {
     /**
      * Constructor.
      *
-     * @param WP_User $profileuser
+     * @param int|WP_User $user
      *
      * @return WP_Buoy_User_Settings
      */
-    public function __construct ($profileuser) {
-        $this->user = $profileuser;
+    public function __construct ($user) {
+        if (is_numeric($user)) {
+            $user = get_userdata($user);
+        }
+        $this->user = $user;
         $this->options = $this->get_options();
         return $this;
     }

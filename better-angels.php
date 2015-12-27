@@ -35,14 +35,11 @@ class BetterAngelsPlugin {
         add_action('admin_head-dashboard_page_' . $this->prefix . 'activate-alert', array($this, 'doAdminHeadActivateAlert'));
         add_action('admin_notices', array($this, 'showAdminNotices'));
 
-        add_action('wp_ajax_' . $this->prefix . 'findme', array($this, 'handleAlert'));
         add_action('wp_ajax_' . $this->prefix . 'schedule-alert', array($this, 'handleScheduledAlert'));
         add_action('wp_ajax_' . $this->prefix . 'unschedule-alert', array($this, 'handleUnscheduleAlert'));
         add_action('wp_ajax_' . $this->prefix . 'update-location', array($this, 'handleLocationUpdate'));
         add_action('wp_ajax_' . $this->prefix . 'upload-media', array($this, 'handleMediaUpload'));
         add_action('wp_ajax_' . $this->prefix . 'dismiss-installer', array($this, 'handleDismissInstaller'));
-
-        add_action('publish_' . str_replace('-', '_', $this->prefix) . 'alert', array($this, 'publishAlert'));
 
         add_action('update_option_' . $this->prefix . 'settings', array($this, 'updatedSettings'), 10, 2);
 
@@ -50,21 +47,6 @@ class BetterAngelsPlugin {
 
         register_activation_hook(__FILE__, array($this, 'activate'));
         register_deactivation_hook(__FILE__, array($this, 'deactivate'));
-    }
-
-    public function setIncidentHash ($string_to_hash) {
-        $this->incident_hash = hash('sha256', $string_to_hash);
-    }
-    public function getIncidentHash () {
-        return $this->incident_hash;
-    }
-    public function setChatRoomName ($name) {
-        $prefix = 'buoy_';
-        // need to limit the length of this string due to Tlk.io integration for now
-        $this->chat_room_name = $prefix . substr($name, 0, 20);
-    }
-    public function getChatRoomName () {
-        return $this->chat_room_name;
     }
 
     public function activate () {
@@ -290,18 +272,6 @@ class BetterAngelsPlugin {
     }
 
     /**
-     * Get a user's pre-defined crisis message, or a default message if empty.
-     *
-     * @return string The message.
-     */
-    private function getCallForHelp ($user_id = null) {
-        $user_id = (!is_numeric($user_id)) ? get_current_user_id() : $user_id;
-        $call_for_help = wp_strip_all_tags(get_user_meta($user_id, $this->prefix . 'call_for_help', true));
-        return (empty($call_for_help))
-            ? __('Please help!', 'better-angels') : $call_for_help;
-    }
-
-    /**
      * Handles modifying various WordPress settings based on a plugin settings update.
      *
      * @param array $old
@@ -330,54 +300,6 @@ class BetterAngelsPlugin {
             $this->prefix . 'delete_old_alerts',
             array($new_str)
         );
-    }
-
-    /**
-     * Inserts a new alert (incident) as a custom post type in the WordPress database.
-     *
-     * @param array $post_args Arguments for the post type.
-     * @param array $geodata Array includin a `latitude` and a `longitude` key for geodata, or false if no geodata present.
-     * @return int Result of `wp_insert_post()` (int ID of new post on success, WP_Error on error.)
-     */
-    public function newAlert ($post_args, $geodata = false) {
-        // Set instance variables
-        $this->setIncidentHash(
-            serialize(wp_get_current_user())
-            . serialize($this->getGuardians(get_current_user_id()))
-            . time()
-        );
-        $this->setChatRoomName(hash('sha1', $this->getIncidentHash() . uniqid('', true)));
-
-        // TODO: Do some validation on $post_args?
-        // These values should always be hard-coded.
-        $post_args['post_type'] = str_replace('-', '_', $this->prefix) . 'alert';
-        $post_args['post_content'] = ''; // Empty content
-        $post_args['ping_status'] = 'closed';
-        $post_args['comment_status'] = 'closed';
-
-        if (empty($post_args['post_status'])) {
-            $post_args['post_status'] = 'publish';
-        }
-
-        $alert_id = wp_insert_post($post_args);
-        if (!is_wp_error($alert_id)) {
-            update_post_meta($alert_id, $this->prefix . 'incident_hash', $this->getIncidentHash());
-            update_post_meta($alert_id, $this->prefix . 'chat_room_name', $this->getChatRoomName());
-            if ($geodata) {
-                update_post_meta($alert_id, 'geo_latitude', $geodata['latitude']);
-                update_post_meta($alert_id, 'geo_longitude', $geodata['longitude']);
-            }
-            // TODO: Should we explicitly mark this geodata privacy info?
-            //       See https://codex.wordpress.org/Geodata#Geodata_Format
-            //update_post_meta($alert_id, 'geo_public', 1);
-        }
-        return $alert_id;
-    }
-
-    private function alertSubject () {
-        return (empty($_POST['msg']))
-            ? $this->getCallForHelp(get_current_user_id())
-            : wp_strip_all_tags(stripslashes_deep($_POST['msg']));
     }
 
     public function handleScheduledAlert () {
@@ -430,100 +352,6 @@ class BetterAngelsPlugin {
             }
         } else {
             wp_send_json_error();
-        }
-    }
-
-    /**
-     * Responds to requests activated from the main emergency alert button.
-     *
-     * TODO: Refactor this method, shouldn't have responsibility for all it's doing.
-     * TODO: Currently responds to both Ajax and non-JS form submissions. Again, refactor needed.
-     */
-    public function handleAlert () {
-        check_ajax_referer($this->prefix . 'activate-alert', $this->prefix . 'nonce');
-
-        // Collect info from the browser via Ajax request
-        $alert_position = (empty($_POST['pos'])) ? false : $_POST['pos']; // TODO: array_map and sanitize this?
-
-        // Create and publish the new alert.
-        $this->newAlert(array('post_title' => $this->alertSubject()), $alert_position);
-
-        // Construct the redirect URL to the alerter's chat room
-        $next_url = wp_nonce_url(
-            admin_url(
-                '?page=' . $this->prefix . 'incident-chat'
-                . '&' . $this->prefix . 'incident_hash=' . $this->getIncidentHash()
-            ),
-            $this->prefix . 'chat', $this->prefix . 'nonce'
-        );
-
-        if (isset($_SERVER['HTTP_ACCEPT'])) {
-            $accepts = explode(',', $_SERVER['HTTP_ACCEPT']);
-        }
-        if ($accepts && 'application/json' === array_shift($accepts)) {
-            wp_send_json_success($next_url);
-        } else {
-            wp_safe_redirect(html_entity_decode($next_url));
-        }
-    }
-
-    /**
-     * Runs whenever an alert is published. Sends notifications to an alerter's
-     * response team informing them of the alert.
-     *
-     * @param int $post_id The WordPress post ID of the published alert.
-     */
-    public function publishAlert ($post_id) {
-        $incident_hash = get_post_meta($post_id, $this->prefix . 'incident_hash', true);
-        if (empty($incident_hash)) { $incident_hash = $this->getIncidentHash(); }
-        $responder_link = admin_url(
-            '?page=' . $this->prefix . 'review-alert'
-            . '&' . $this->prefix . 'incident_hash=' . $incident_hash
-        );
-        $responder_short_link = home_url(
-            '?' . str_replace('_', '-', $this->prefix) . 'alert='
-            . substr($incident_hash, 0, 8)
-        );
-
-        $alerter = get_userdata(get_post_field('post_author', $post_id));
-        $guardians = $this->getGuardians($alerter->ID);
-        foreach ($guardians as $guardian) {
-            $sms = preg_replace('/[^0-9]/', '', get_user_meta($guardian->ID, $this->prefix . 'sms', true));
-            $sms_provider = get_user_meta($guardian->ID, $this->prefix . 'sms_provider', true);
-            $headers = array(
-                'From: "' . $alerter->display_name . '" <' . $alerter->user_email . '>'
-            );
-            $subject = get_post_field('post_title', $post_id);
-
-            // TODO: Write a more descriptive message.
-            wp_mail($guardian->user_email, $subject, $responder_link, $headers);
-
-            // Send an email that will be converted to an SMS by the
-            // telco company if the guardian has provided an emergency txt number.
-            if (!empty($sms) && !empty($sms_provider)) {
-                $sms_max_length = 160;
-                // We need to ensure that SMS notifications fit within the 160 character
-                // limit of SMS transmissions. Since we're using email-to-SMS gateways,
-                // a subject will be wrapped inside of parentheses, making it two chars
-                // longer than whatever its original contents are. Then a space is
-                // inserted between the subject and the message body. The total length
-                // of strlen($subject) + 2 + 1 + strlen($message) must be less than 160.
-                $extra_length = 3; // two parenthesis and a space
-                // but in practice, there seems to be another 7 chars eaten up somewhere?
-                $extra_length += 7;
-                $url_length = strlen($responder_short_link);
-                $full_length = strlen($subject) + $extra_length + $url_length;
-                if ($full_length > $sms_max_length) {
-                    // truncate the $subject since the link must be fully included
-                    $subject = substr($subject, 0, $sms_max_length - $url_length - $extra_length);
-                }
-                wp_mail(
-                    $sms . $this->getSmsEmailGatewayDomain($sms_provider),
-                    $subject,
-                    $responder_short_link,
-                    $headers
-                );
-            }
         }
     }
 
@@ -975,23 +803,6 @@ class BetterAngelsPlugin {
             return;
         }
         require_once 'pages/review-alert.php';
-    }
-
-    /**
-     * Retrieves an alert post from the WordPress database.
-     *
-     * @param string $incident_hash An incident hash string, at least 8 characters long.
-     * @return WP_Post|null
-     */
-    public function getAlert ($incident_hash) {
-        if (strlen($incident_hash) < 8) { return NULL; }
-        $posts = get_posts(array(
-            'post_type' => str_replace('-', '_', $this->prefix) . 'alert',
-            'meta_key' => $this->prefix . 'incident_hash',
-            'meta_value' => "^$incident_hash",
-            'meta_compare' => 'REGEXP'
-        ));
-        return array_pop($posts);
     }
 
     public function addIncidentResponder ($alert_post, $user_id) {
