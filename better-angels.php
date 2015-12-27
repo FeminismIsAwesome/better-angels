@@ -27,7 +27,6 @@ class BetterAngelsPlugin {
         $this->Error = new WP_Error();
 
         add_action('admin_init', array($this, 'configureCron'));
-        add_action('send_headers', array($this, 'redirectShortUrl'));
         add_action('wp_before_admin_bar_render', array($this, 'addIncidentMenu'));
 
         add_action('admin_enqueue_scripts', array($this, 'enqueueAdminScripts'));
@@ -433,28 +432,6 @@ class BetterAngelsPlugin {
             $res[] = $this_responder;
         }
         return $res;
-    }
-
-    /**
-     * Detects an alert "short URL," which is a GET request with a special querystring parameter
-     * that matches the first 8 characters of an alert's incident hash value and, if matched,
-     * redirects to the full URL of that particular alert, then `exit()`s.
-     *
-     * @return void
-     */
-    public function redirectShortUrl () {
-        $get_param = str_replace('_', '-', $this->prefix) . 'alert';
-        if (!empty($_GET[$get_param]) && 8 === strlen($_GET[$get_param])) {
-            $post = $this->getAlert(urldecode($_GET[$get_param]));
-            $full_hash = get_post_meta($post->ID, $this->prefix . 'incident_hash', true);
-            if ($full_hash) {
-                wp_safe_redirect(admin_url(
-                    '?page=' . $this->prefix . 'review-alert'
-                    . '&' . $this->prefix . 'incident_hash=' . urlencode($full_hash)
-                ));
-                exit();
-            }
-        }
     }
 
     /**

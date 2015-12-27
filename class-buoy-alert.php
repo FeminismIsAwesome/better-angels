@@ -353,11 +353,45 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
             'delete_with_user' => true
         ));
 
+        add_action('send_headers', array(__CLASS__, 'redirectShortUrl'));
+
         add_action('admin_menu', array(__CLASS__, 'registerAdminMenu'));
 
         add_action('wp_ajax_' . parent::$prefix . '_new_alert', array(__CLASS__, 'handleNewAlert'));
 
         add_action('publish_' . parent::$prefix . '_alert', array('WP_Buoy_Notification', 'publishAlert'), 10, 2);
+    }
+
+    /**
+     * Detects an alert "short URL," which is a GET request with a
+     * special querystring parameter that matches the first 8 chars of
+     * an alert's hash value and, if matched, redirects to the full
+     * URL of that particular alert, then `exit()`s.
+     *
+     * @see https://developer.wordpress.org/reference/hooks/send_headers/
+     * 
+     * @global $_GET
+     *
+     * @uses WP_Buoy_Alert::get_hash()
+     * @uses wp_safe_redirect()
+     * @uses admin_url()
+     *
+     * @param WP $wp
+     *
+     * @return void
+     */
+    public static function redirectShortUrl ($wp) {
+        $get_param = parent::$prefix . '_alert';
+        if (isset($_GET[$get_param]) && 8 === strlen($_GET[$get_param])) {
+            $alert = new self(sanitize_text_field(urldecode($_GET[$get_param])));
+            if ($alert->get_hash()) {
+                wp_safe_redirect(admin_url(
+                    '?page=' . parent::$prefix . '_review_alert'
+                    . '&' . parent::$prefix . '_hash=' . urlencode($alert->get_hash())
+                ));
+                exit();
+            }
+        }
     }
 
     /**
