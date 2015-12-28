@@ -1,13 +1,18 @@
 <?php
-if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
 /**
- * Class responsible for handling plugin options, getting and setting
- * options from the rest of the plugin.
+ * Buoy User Settings
  *
- * @author maymay <bitetheappleback@gmail.com>
+ * @package WordPress\Plugin\WP_Buoy_Plugin\WP_Buoy_User\WP_Buoy_User_Settings
+ *
  * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
+ *
  * @license https://www.gnu.org/licenses/gpl-3.0.en.html
- * @package WordPress\Plugin\WP_Buoy_Plugin\User\Settings
+ */
+
+if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
+
+/**
+ * Manages user-specific settings for a given user.
  */
 class WP_Buoy_User_Settings {
 

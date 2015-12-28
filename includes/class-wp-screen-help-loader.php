@@ -1,16 +1,21 @@
 <?php
 /**
- * Manages WordPress on-screen help tabs and sidebar content based on
- * a directory of markdown files.
+ * WordPress On-screen Help Loader
  *
- * @author maymay <bitetheappleback@gmail.com>
  * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
+ *
  * @license https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
  * @package WordPress\Plugin\WP_Buoy_Plugin\WP_Screen_Help_Loader
  */
 
 if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
 
+/**
+ *
+ * Manages WordPress on-screen help tabs and sidebar content based on
+ * a directory of markdown files.
+ */
 class WP_Screen_Help_Loader {
 
     /**
@@ -115,7 +120,7 @@ class WP_Screen_Help_Loader {
      *
      * This should be called during WordPress's `load-{$pagenow}` hook.
      *
-     * @see https://developer.wordpress.org/reference/hooks/load-pagenow/
+     * @link https://developer.wordpress.org/reference/hooks/load-pagenow/
      *
      * @todo Allow for file types/extensions other than markdown.
      *
@@ -149,7 +154,7 @@ class WP_Screen_Help_Loader {
      *
      * This should be called during WordPress's `admin_head` hook.
      *
-     * @see https://developer.wordpress.org/reference/hooks/admin_head/
+     * @link https://developer.wordpress.org/reference/hooks/admin_head/
      *
      * @uses Parsedown::text()
      * @uses WP_Screen::get_help_sidebar()

@@ -1,13 +1,18 @@
 <?php
+/**
+ * Buoy Notification
+ *
+ * @package WordPress\Plugin\WP_Buoy_Plugin\WP_Buoy_Notification
+ *
+ * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
+ *
+ * @license https://www.gnu.org/licenses/gpl-3.0.en.html
+ */
+
 if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
 /**
  * Class responsible for sending notifications triggered by the right
  * events via the right mechanisms.
- *
- * @author maymay <bitetheappleback@gmail.com>
- * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
- * @license https://www.gnu.org/licenses/gpl-3.0.en.html
- * @package WordPress\Plugin\WP_Buoy_Plugin\Notifications
  */
 class WP_Buoy_Notification extends WP_Buoy_Plugin {
 

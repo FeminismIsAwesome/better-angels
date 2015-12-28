@@ -1,17 +1,24 @@
 <?php
+/**
+ * Buoy Alert
+ *
+ * A Buoy Alert may also be referred to as an "incident" depending on
+ * context.
+ *
+ * @package WordPress\Plugin\WP_Buoy_Plugin\WP_Buoy_Alert
+ *
+ * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
+ *
+ * @license https://www.gnu.org/licenses/gpl-3.0.en.html
+ */
 
 if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
 
 /**
- * Main class for creating and delegating responses to alerts.
+ * Class for creating and delegating responses to alerts.
  *
  * Alerts are posts that record some incident information such as the
  * location and attached media recordings of what's going on.
- *
- * @author maymay <bitetheappleback@gmail.com>
- * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
- * @license https://www.gnu.org/licenses/gpl-3.0.en.html
- * @package WordPress\Plugin\WP_Buoy_Plugin\Teams
  */
 class WP_Buoy_Alert extends WP_Buoy_Plugin {
 
@@ -42,7 +49,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
      * This holds the initialization data for the alert's WP_Post data
      * and is the same as `wp_insert_post()`'s `$postarr` parameter.
      *
-     * @see https://developer.wordpress.org/reference/functions/wp_insert_post/
+     * @link https://developer.wordpress.org/reference/functions/wp_insert_post/
      *
      * @var array
      */
@@ -58,7 +65,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
      * this context makes it harder for attackrs to guess quantity and
      * frequency of alerts that this Buoy maintains.
      *
-     * @see https://www.owasp.org/index.php/How_to_protect_sensitive_data_in_URL%27s
+     * @link https://www.owasp.org/index.php/How_to_protect_sensitive_data_in_URL%27s
      *
      * @var string
      */
@@ -171,7 +178,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     /**
      * Sets the WP_Post data for this alert.
      *
-     * @see https://developer.wordpress.org/reference/functions/wp_insert_post/
+     * @link https://developer.wordpress.org/reference/functions/wp_insert_post/
      *
      * @param array $postarr Same as `wp_insert_post()`'s `$postarr` parameter.
      *
@@ -209,6 +216,8 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     }
 
     /**
+     * Gets this alert's lookup hash value.
+     *
      * @return string
      */
     public function get_hash () {
@@ -231,12 +240,15 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
      * a "confirmed" member in one of the teams associated with this
      * alert.
      *
-     * @todo Currently, an alert dynamically looks up who is on the
-     *       teams associated with it. This should be changed so it
-     *       keeps a snapshotted list of the confirmed team members
-     *       at the time the alert was created. This will prevent a
-     *       user from being added to a team (and thus granted access
-     *       to an alert) *after* the alert has been sent out.
+     * @todo
+     * Currently, an alert dynamically looks up who is on the
+     * teams associated with it. This should be changed so it
+     * keeps a snapshotted list of the confirmed team members
+     * at the time the alert was created. This will prevent a
+     * user from being added to a team (and thus granted access
+     * to an alert) *after* the alert has been sent out.
+     *
+     * @uses WP_Buoy_Team::get_confirmed_members()
      *
      * @param int $user_id
      *
@@ -268,6 +280,8 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     }
 
     /**
+     * Loads this alert's chat room name from the database.
+     *
      * @return void
      */
     private function set_chat_room_name () {
@@ -275,6 +289,8 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     }
 
     /**
+     * Gets this alert's chat room name.
+     *
      * @return string
      */
     public function get_chat_room_name () {
@@ -387,7 +403,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
      * @uses WP_Buoy_Alert::get_random_seed()
      * @uses hash()
      *
-     * @return WP_Buoy_Alert
+     * @return string
      */
     private function make_chat_room_name () {
         // need to limit the length of this string due to Tlk.io integration for now
@@ -428,6 +444,8 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     }
 
     /**
+     * Registers the Buoy Alert post type and hooks.
+     *
      * @return void
      */
     public static function register () {
@@ -453,12 +471,14 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     }
 
     /**
-     * Detects an alert "short URL," which is a GET request with a
-     * special querystring parameter that matches the first 8 chars of
-     * an alert's hash value and, if matched, redirects to the full
-     * URL of that particular alert, then `exit()`s.
+     * Redirects users arriving at Buoy via short url.
      *
-     * @see https://developer.wordpress.org/reference/hooks/send_headers/
+     * Detects an alert "short URL," which is an HTTP GET request with
+     * a special querystring parameter that matches the first 8 chars
+     * of an alert's hash value and, if matched, redirects to the full
+     * URL of that particular alert's "review" screen, then `exit()`s.
+     *
+     * This occurrs during {@see https://developer.wordpress.org/reference/hooks/send_headers/ WordPress's `send_headers` hook}.
      * 
      * @global $_GET
      *
@@ -485,6 +505,14 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     }
 
     /**
+     * Registers plugin hooks for the WordPress Dashboard admin menu.
+     *
+     * @link https://codex.wordpress.org/Administration_Menus
+     *
+     * @uses add_dashboard_page()
+     * @uses add_submenu_page()
+     * @uses add_action()
+     *
      * @return void
      */
     public static function registerAdminMenu () {
@@ -525,6 +553,11 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     }
 
     /**
+     * Prints HTML for the "activate alert" page.
+     *
+     * @uses get_current_user_id()
+     * @uses WP_Buoy_User::has_responder()
+     *
      * @return void
      */
     public static function renderActivateAlertPage () {
@@ -537,7 +570,13 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     }
 
     /**
+     * Prints HTML for the "review alert" page.
+     *
      * @global $_GET
+     *
+     * @uses current_user_can()
+     * @uses get_current_user_id()
+     * @uses WP_Buoy_Alert::can_respond()
      *
      * @return void
      */
@@ -554,7 +593,15 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     }
 
     /**
+     * Prints HTML for the "incident chat" page.
+     *
      * @global $_GET
+     *
+     * @uses current_user_can()
+     * @uses wp_verify_nonce()
+     * @uses get_current_user_id()
+     * @uses WP_Buoy_Alert::add_responder()
+     * @uses WP_Buoy_Alert::add_responder_geo()
      *
      * @return void
      */
@@ -584,7 +631,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
      *
      * @todo Move to the main plugin class?
      *
-     * @see https://developer.wordpress.org/reference/hooks/screen_options_show_screen/
+     * @link https://developer.wordpress.org/reference/hooks/screen_options_show_screen/
      *
      * @uses add_filter()
      */
@@ -705,9 +752,9 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     /**
      * Sets subresource integrity attributes on elements loaded via CDN.
      *
-     * @see https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity
-     * @see https://developer.wordpress.org/reference/hooks/style_loader_tag/
-     * @see https://developer.wordpress.org/reference/hooks/script_loader_tag/
+     * @link https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity
+     * @link https://developer.wordpress.org/reference/hooks/style_loader_tag/
+     * @link https://developer.wordpress.org/reference/hooks/script_loader_tag/
      *
      * @param string $html
      * @param string $handle
@@ -764,7 +811,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     /**
      * Responds to requests activated from the main emergency alert button.
      *
-     * @see https://developer.wordpress.org/reference/hooks/wp_ajax__requestaction/
+     * @link https://developer.wordpress.org/reference/hooks/wp_ajax__requestaction/
      *
      * @global $_POST
      *

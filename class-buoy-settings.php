@@ -1,13 +1,23 @@
 <?php
-if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
 /**
- * Class responsible for handling plugin options, getting and setting
- * options from the rest of the plugin.
+ * Buoy Alert.
  *
- * @author maymay <bitetheappleback@gmail.com>
- * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
- * @license https://www.gnu.org/licenses/gpl-3.0.en.html
+ * A Buoy Alert may also be referred to as an "incident" depending on
+ * context.
+ *
  * @package WordPress\Plugin\WP_Buoy_Plugin\Settings
+ *
+ * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
+ *
+ * @license https://www.gnu.org/licenses/gpl-3.0.en.html
+ */
+
+if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
+
+/**
+ * Handles plugin-wide options.
+ *
+ * This is distinct from user-specific options.
  */
 class WP_Buoy_Settings {
 

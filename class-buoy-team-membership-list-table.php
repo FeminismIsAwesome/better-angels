@@ -1,4 +1,14 @@
 <?php
+/**
+ * Buoy Team Membership List Table
+ *
+ * @package WordPress\Plugin\WP_Buoy_Plugin\WP_Buoy_Team\Buoy_Team_Membership_List_Table
+ *
+ * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
+ *
+ * @license https://www.gnu.org/licenses/gpl-3.0.en.html
+ */
+
 if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
 if (!class_exists('WP_List_Table')) {
     require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
@@ -6,8 +16,6 @@ if (!class_exists('WP_List_Table')) {
 
 /**
  * Buoy Team membership admin interface.
- *
- * @package WordPress\Plugin\WP_Buoy_Plugin\Team\Administration
  */
 class Buoy_Team_Membership_List_Table extends WP_List_Table {
 

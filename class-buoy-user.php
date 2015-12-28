@@ -1,13 +1,18 @@
 <?php
-if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
 /**
- * Class that manages interaction between WordPress API and Buoy user
- * settings.
+ * Buoy User
  *
- * @author maymay <bitetheappleback@gmail.com>
+ * @package WordPress\Plugin\WP_Buoy_Plugin\WP_Buoy_User
+ *
  * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
+ *
  * @license https://www.gnu.org/licenses/gpl-3.0.en.html
- * @package WordPress\Plugin\WP_Buoy_Plugin\User
+ */
+
+if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
+
+/**
+ * Manages interaction between WordPress API and Buoy user settings.
  */
 class WP_Buoy_User extends WP_Buoy_Plugin {
 

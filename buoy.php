@@ -1,13 +1,27 @@
 <?php
 /**
- * Plugin Name: Buoy (a Better Angels crisis response system)
- * Plugin URI: https://github.com/meitar/better-angels
- * Description: A community-based crisis response system. <strong>Like this plugin? Please <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&amp;business=TJLPJYXHSRBEE&amp;lc=US&amp;item_name=Better%20Angels&amp;item_number=better-angels&amp;currency_code=USD&amp;bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted" title="Send a donation to the developer of Better Angels Buoy">donate</a>. &hearts; Thank you!</strong>
- * Version: 0.1
- * Author: Maymay <bitetheappleback@gmail.com>
- * Author URI: https://maymay.net/
- * Text Domain: buoy
- * Domain Path: /languages
+ * The Buoy plugin for WordPress.
+ *
+ * WordPress plugin header information:
+ *
+ * * Plugin Name: Buoy (a Better Angels crisis response system)
+ * * Plugin URI: https://github.com/meitar/better-angels
+ * * Description: A community-based crisis response system. <strong>Like this plugin? Please <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&amp;business=TJLPJYXHSRBEE&amp;lc=US&amp;item_name=Better%20Angels&amp;item_number=better-angels&amp;currency_code=USD&amp;bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted" title="Send a donation to the developer of Better Angels Buoy">donate</a>. &hearts; Thank you!</strong>
+ * * Version: 0.1
+ * * Author: Maymay <bitetheappleback@gmail.com>
+ * * Author URI: https://maymay.net/
+ * * License: GPL-3
+ * * License URI: https://www.gnu.org/licenses/gpl-3.0.en.html
+ * * Text Domain: buoy
+ * * Domain Path: /languages
+ *
+ * @link https://developer.wordpress.org/plugins/the-basics/header-requirements/
+ *
+ * @license https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * @author maymay <bitetheappleback@gmail.com>
+ *
+ * @package WordPress\Plugin\WP_Buoy_Plugin
  */
 
 if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
@@ -29,11 +43,6 @@ if (!defined('WP_BUOY_MIN_PHP_VERSION')) {
 
 /**
  * Base class that WordPress uses to register and initialize plugin.
- *
- * @author maymay <bitetheappleback@gmail.com>
- * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
- * @license https://www.gnu.org/licenses/gpl-3.0.en.html
- * @package WordPress\Plugin\WP_Buoy_Plugin
  */
 class WP_Buoy_Plugin {
 
@@ -45,8 +54,15 @@ class WP_Buoy_Plugin {
     public static $prefix = 'buoy';
 
     /**
-     * Entry point for the WordPress framework into plugin code, that
-     * registers various hooks.
+     * Entry point for the WordPress framework into plugin code.
+     *
+     * This is the method called when WordPress loads the plugin file.
+     * It is responsible for "registering" the plugin's main functions
+     * with the {@see https://codex.wordpress.org/Plugin_API WordPress Plugin API}.
+     *
+     * @uses add_action()
+     * @uses register_activation_hook()
+     * @uses register_deactivation_hook()
      *
      * @return void
      */
@@ -60,7 +76,9 @@ class WP_Buoy_Plugin {
     }
 
     /**
-     * Loads localization files from plugin's `languages` directory.
+     * Loads localization files from plugin's languages directory.
+     *
+     * @uses load_plugin_textdomain()
      *
      * @return void
      */
@@ -72,11 +90,11 @@ class WP_Buoy_Plugin {
      * Loads plugin componentry and calls that component's register()
      * method. Called at the WordPress `init` hook.
      *
-     * @uses WP_Buoy_Settings::register();
-     * @uses WP_Buoy_Team::register();
-     * @uses WP_Buoy_Notification::register();
-     * @uses WP_Buoy_User::register();
-     * @uses WP_Buoy_Alert::register();
+     * @uses WP_Buoy_Settings::register()
+     * @uses WP_Buoy_Team::register()
+     * @uses WP_Buoy_Notification::register()
+     * @uses WP_Buoy_User::register()
+     * @uses WP_Buoy_Alert::register()
      *
      * @return void
      */
@@ -142,7 +160,7 @@ class WP_Buoy_Plugin {
     /**
      * Returns the "Requires at least" value from plugin's readme.txt.
      *
-     * @see https://wordpress.org/plugins/about/readme.txt
+     * @see https://wordpress.org/plugins/about/readme.txt WordPress `readme.txt` standard.
      *
      * @return string
      */

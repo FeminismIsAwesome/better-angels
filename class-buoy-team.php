@@ -1,14 +1,22 @@
 <?php
-if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
 /**
+ * Buoy Team
+ *
+ * @package WordPress\Plugin\WP_Buoy_Plugin\Teams
+ *
+ * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
+ *
+ * @license https://www.gnu.org/licenses/gpl-3.0.en.html
+ */
+
+if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
+
+/**
+ * Main class for a Buoy Team.
+ *
  * Teams are groups/lists of potential responders managed by one user
  * who invites them to join said team. They are implemented as a WP
  * custom post type.
- *
- * @author maymay <bitetheappleback@gmail.com>
- * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
- * @license https://www.gnu.org/licenses/gpl-3.0.en.html
- * @package WordPress\Plugin\WP_Buoy_Plugin\Teams
  */
 class WP_Buoy_Team extends WP_Buoy_Plugin {
 
@@ -49,6 +57,9 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         return $this;
     }
 
+    /**
+     * @param string $name
+     */
     public function __get ($name) {
         return $this->$name;
     }
@@ -84,8 +95,6 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * This does not do any checking about whether the given user ID
      * is "confirmed" or not.
      *
-     * @see WP_Buoy_Team::is_confirmed()
-     *
      * @return string[] IDs are actually returned as string values.
      */
     public function get_member_ids () {
@@ -99,7 +108,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * whether the user has been at least invited to be a member of a
      * team.
      *
-     * @see WP_Buoy_Team::is_confirmed()
+     * @uses WP_Buoy_Team::get_member_ids()
      *
      * @param int $user_id
      *
@@ -160,6 +169,8 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     /**
      * Sets the confirmation flag for a user on this team.
      *
+     * @uses add_post_meta()
+     *
      * @param int $user_id
      *
      * @return WP_Buoy_Team
@@ -171,6 +182,8 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
 
     /**
      * Unsets the confirmation flag for a user on this team.
+     *
+     * @uses delete_post_meta()
      *
      * @param int $user_id
      *
@@ -185,6 +198,8 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * Checks whether or not a user is "confirmed" to be on the team.
      *
      * "Confirmation" consists of a flag in the team post's metadata.
+     *
+     * @uses get_post_meta()
      *
      * @param int $user_id
      *
@@ -215,6 +230,9 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
 
     /**
      * Gets the confirmed members of this team.
+     *
+     * @uses WP_Buoy_Team::get_member_ids()
+     * @uses WP_Buoy_Team::is_confirmed()
      *
      * @return int[]
      */
@@ -387,7 +405,9 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     }
 
     /**
-     * @see https://developer.wordpress.org/reference/hooks/current_screen/
+     * Sets team parameters based on actions taken in Team admin UI.
+     * 
+     * @link https://developer.wordpress.org/reference/hooks/current_screen/
      *
      * @global $_POST
      * @global $_GET
@@ -400,6 +420,8 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @uses wp_verify_nonce()
      * @uses WP_Buoy_Team::remove_member()
      * @uses WP_Buoy_Team::confirm_member()
+     *
+     * @param WP_Screen $current_screen
      *
      * @return void
      */
@@ -457,7 +479,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * This checks a team transition and if the action leaves a user
      * without any responders, it will re-set the team's status.
      *
-     * @see https://developer.wordpress.org/reference/hooks/post_updated/
+     * @link https://developer.wordpress.org/reference/hooks/post_updated/
      *
      * @uses WP_Buoy_User::has_responder()
      * @uses WP_Buoy_Team::is_default()
@@ -500,7 +522,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      *
      * This is called by WordPress's `save_post_{$post->post_type}` hook.
      *
-     * @see https://developer.wordpress.org/reference/hooks/save_post_post-post_type/
+     * @link https://developer.wordpress.org/reference/hooks/save_post_post-post_type/
      *
      * @global $_POST
      *
@@ -550,7 +572,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * This is used primarily to detect when a user is removed from a
      * team and, when this occurrs, remove the confirmation flag, too.
      *
-     * @see https://developer.wordpress.org/reference/hooks/deleted_meta_type_meta/
+     * @link https://developer.wordpress.org/reference/hooks/deleted_meta_type_meta/
      *
      * @param array $meta_ids
      * @param int $post_id
@@ -618,7 +640,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      *
      * Called by the `user_has_cap` filter.
      *
-     * @see https://developer.wordpress.org/reference/hooks/user_has_cap/
+     * @link https://developer.wordpress.org/reference/hooks/user_has_cap/
      *
      * @param array $caps The user's actual capabilities.
      *
@@ -636,7 +658,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     /**
      * Add custom columns shown in the "My Teams" admin UI.
      *
-     * @see https://developer.wordpress.org/reference/hooks/manage_post_type_posts_columns/
+     * @link https://developer.wordpress.org/reference/hooks/manage_post_type_posts_columns/
      *
      * @param array $post_columns
      *
@@ -653,7 +675,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     /**
      * Makes the custom columns sortable in the "My Teams" admin UI.
      *
-     * @see https://developer.wordpress.org/reference/hooks/manage_this-screen-id_sortable_columns/
+     * @link https://developer.wordpress.org/reference/hooks/manage_this-screen-id_sortable_columns/
      *
      * @param array $sortable_columns
      *
@@ -719,7 +741,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     /**
      * Add the column content for custom columns in the "My Teams" UI.
      *
-     * @see https://developer.wordpress.org/reference/hooks/manage_post-post_type_posts_custom_column/
+     * @link https://developer.wordpress.org/reference/hooks/manage_post-post_type_posts_custom_column/
      *
      * @param string $column_name
      * @param int $post_id
@@ -764,7 +786,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     /**
      * Removes the views links in the Team posts table.
      *
-     * @see https://developer.wordpress.org/reference/hooks/views_this-screen-id/
+     * @link https://developer.wordpress.org/reference/hooks/views_this-screen-id/
      *
      * @param array $items
      *
@@ -777,7 +799,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     /**
      * Customizes the post row actions in the "My Teams" admin UI.
      *
-     * @see https://developer.wordpress.org/reference/hooks/post_row_actions/
+     * @link https://developer.wordpress.org/reference/hooks/post_row_actions/
      *
      * @uses WP_Buoy_Team::is_default()
      *
