@@ -73,7 +73,7 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
      */
     public function get_teams () {
         $this->_teams = get_posts(array(
-            'post_type' => parent::$prefix . '_team',
+            'post_type' => self::$prefix . '_team',
             'author' => $this->wp_user->ID,
             'posts_per_page' => -1,
             'fields' => 'ids'
@@ -239,7 +239,7 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
         add_action('show_user_profile', array(__CLASS__, 'renderProfile'));
         add_action('personal_options_update', array(__CLASS__, 'saveProfile'));
 
-        add_action(parent::$prefix . '_team_emptied', array(__CLASS__, 'warnIfNoResponder'));
+        add_action(self::$prefix . '_team_emptied', array(__CLASS__, 'warnIfNoResponder'));
     }
 
     /**
@@ -252,7 +252,7 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
      * @return bool
      */
     public static function warnIfNoResponder ($team) {
-        $buoy_user = new self($team->author->ID);
+        $buoy_user = new self($team->wp_post->post_author);
         if (false === $buoy_user->has_responder()) {
             // TODO: This should be a bit cleaner. Maybe part of the WP_Buoy_Notification class?
             $subject = __('You no longer have crisis responders.', 'buoy');
@@ -290,11 +290,11 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
     public static function saveProfile ($user_id) {
         $options = new WP_Buoy_User_Settings($user_id);
         $options
-            ->set('gender_pronoun_possessive', sanitize_text_field($_POST[WP_Buoy_Plugin::$prefix.'_gender_pronoun_possessive']))
-            ->set('phone_number', sanitize_text_field($_POST[WP_Buoy_Plugin::$prefix . '_phone_number']))
-            ->set('sms_provider', sanitize_text_field($_POST[WP_Buoy_Plugin::$prefix . '_sms_provider']))
-            ->set('crisis_message', sanitize_text_field($_POST[WP_Buoy_Plugin::$prefix . '_crisis_message']))
-            ->set('public_responder', (isset($_POST[WP_Buoy_Plugin::$prefix . '_public_responder'])) ? true : false)
+            ->set('gender_pronoun_possessive', sanitize_text_field($_POST[self::$prefix.'_gender_pronoun_possessive']))
+            ->set('phone_number', sanitize_text_field($_POST[self::$prefix . '_phone_number']))
+            ->set('sms_provider', sanitize_text_field($_POST[self::$prefix . '_sms_provider']))
+            ->set('crisis_message', sanitize_text_field($_POST[self::$prefix . '_crisis_message']))
+            ->set('public_responder', (isset($_POST[self::$prefix . '_public_responder'])) ? true : false)
             ->save();
     }
 

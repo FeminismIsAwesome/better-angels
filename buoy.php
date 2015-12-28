@@ -69,6 +69,7 @@ class WP_Buoy_Plugin {
     public static function register () {
         add_action('plugins_loaded', array(__CLASS__, 'registerL10n'));
         add_action('init', array(__CLASS__, 'initialize'));
+        add_action('admin_enqueue_scripts', array(__CLASS__, 'enqueueFrontEndScripts'));
         add_action('admin_head', array(__CLASS__, 'addHelpSidebar'));
 
         register_activation_hook(__FILE__, array(__CLASS__, 'activate'));
@@ -179,6 +180,23 @@ class WP_Buoy_Plugin {
      * WordPress Dashboard admin screen.
      */
     public static function deactivate () {
+    }
+
+    /**
+     * Enqueues globally relevant scripts and stylesheets.
+     *
+     * @link https://developer.wordpress.org/reference/hooks/admin_enqueue_scripts/
+     *
+     * @return void
+     */
+    public static function enqueueFrontEndScripts () {
+        $plugin_data = get_plugin_data(plugin_dir_path(__FILE__) . self::$prefix . '.php');
+        wp_enqueue_style(
+            self::$prefix . '-style',
+            plugins_url(self::$prefix . '.css', __FILE__),
+            false,
+            $plugin_data['Version']
+        );
     }
 
     /**

@@ -26,10 +26,10 @@ class WP_Buoy_Notification extends WP_Buoy_Plugin {
      * @return void
      */
     public static function register () {
-        add_action('publish_' . parent::$prefix . '_team', array(__CLASS__, 'inviteMembers'), 10, 2);
+        add_action('publish_' . self::$prefix . '_team', array(__CLASS__, 'inviteMembers'), 10, 2);
 
-        add_action(parent::$prefix . '_team_member_added', array(__CLASS__, 'addedToTeam'), 10, 2);
-        add_action(parent::$prefix . '_team_member_removed', array(__CLASS__, 'removedFromTeam'), 10, 2);
+        add_action(self::$prefix . '_team_member_added', array(__CLASS__, 'addedToTeam'), 10, 2);
+        add_action(self::$prefix . '_team_member_removed', array(__CLASS__, 'removedFromTeam'), 10, 2);
     }
 
     /**
@@ -41,7 +41,7 @@ class WP_Buoy_Notification extends WP_Buoy_Plugin {
      * @return void
      */
     public static function addedToTeam ($user_id, $team) {
-        add_post_meta($team->wp_post->ID, '_' . parent::$prefix . '_notify', $user_id, false);
+        add_post_meta($team->wp_post->ID, '_' . self::$prefix . '_notify', $user_id, false);
 
         // Call the equivalent of the "status_type" hook since adding
         // a member may have happened after publishing the post itself.
@@ -58,7 +58,7 @@ class WP_Buoy_Notification extends WP_Buoy_Plugin {
      * @return void
      */
     public static function removedFromTeam ($user_id, $team) {
-        delete_post_meta($team->wp_post->ID, '_' . parent::$prefix . '_notify', $user_id);
+        delete_post_meta($team->wp_post->ID, '_' . self::$prefix . '_notify', $user_id);
     }
 
     /**
@@ -74,7 +74,7 @@ class WP_Buoy_Notification extends WP_Buoy_Plugin {
     public static function inviteMembers ($post_id, $post) {
         $team      = new WP_Buoy_Team($post_id);
         $buoy_user = new WP_Buoy_User($post->post_author);
-        $to_notify = array_unique(get_post_meta($post_id, '_' . parent::$prefix . '_notify'));
+        $to_notify = array_unique(get_post_meta($post_id, '_' . self::$prefix . '_notify'));
         $subject = sprintf(
             __('%1$s wants you to join %2$s crisis response team.', 'buoy'),
             $buoy_user->wp_user->display_name, $buoy_user->get_pronoun()
@@ -82,12 +82,12 @@ class WP_Buoy_Notification extends WP_Buoy_Plugin {
         foreach ($to_notify as $user_id) {
             // TODO: Write a better message.
             $msg = admin_url(
-                'edit.php?post_type=' . $team->wp_post->post_type . '&page=' . parent::$prefix . '_team_membership'
+                'edit.php?post_type=' . $team->wp_post->post_type . '&page=' . self::$prefix . '_team_membership'
             );
             $user = get_userdata($user_id);
             wp_mail($user->user_email, $subject, $msg);
 
-            delete_post_meta($post_id, '_' . parent::$prefix . '_notify', $user_id);
+            delete_post_meta($post_id, '_' . self::$prefix . '_notify', $user_id);
         }
     }
 
@@ -104,11 +104,11 @@ class WP_Buoy_Notification extends WP_Buoy_Plugin {
         $alert = new WP_Buoy_Alert($post_id);
 
         $responder_link = admin_url(
-            '?page=' . parent::$prefix . '_review_alert'
-            . '&' . parent::$prefix . '_hash=' . $alert->get_hash()
+            '?page=' . self::$prefix . '_review_alert'
+            . '&' . self::$prefix . '_hash=' . $alert->get_hash()
         );
         $responder_short_link = home_url(
-            '?' . parent::$prefix . '_alert='
+            '?' . self::$prefix . '_alert='
             . substr($alert->get_hash(), 0, 8)
         );
         $subject = $post->post_title;

@@ -27,7 +27,6 @@ class BetterAngelsPlugin {
         $this->Error = new WP_Error();
 
         add_action('admin_init', array($this, 'configureCron'));
-        add_action('wp_before_admin_bar_render', array($this, 'addIncidentMenu'));
 
         add_action('admin_enqueue_scripts', array($this, 'enqueueAdminScripts'));
         add_action('admin_head-dashboard_page_' . $this->prefix . 'activate-alert', array($this, 'doAdminHeadActivateAlert'));
@@ -370,117 +369,6 @@ class BetterAngelsPlugin {
                 print_r($resp, true)
             ));
             wp_send_json_success($resp);
-        }
-    }
-
-    /**
-     * Gets alert posts with an incident hash.
-     *
-     * @return array
-     */
-    public function getActiveAlerts () {
-        return get_posts(array(
-            'post_type' => str_replace('-', '_', $this->prefix) . 'alert',
-            'meta_key' => $this->prefix . 'incident_hash'
-        ));
-    }
-
-    /**
-     * Gets scheduled alert posts.
-     *
-     * @param int $uid The WordPress user ID of an author's scheduled posts to look up.
-     * @return array
-     */
-    public function getScheduledAlerts ($uid = false) {
-        $args = array(
-            'post_type' => str_replace('-', '_', $this->prefix) . 'alert',
-            'post_status' => 'future'
-        );
-        if (false !== $uid) {
-            $args['author'] = $uid;
-        }
-        return get_posts($args);
-    }
-
-    public function addIncidentMenu () {
-        global $wp_admin_bar;
-
-        $alerts = array(
-            'my_alerts' => array(),
-            'my_responses' => array(),
-            'my_scheduled_alerts' => array()
-        );
-        foreach ($this->getActiveAlerts() as $post) {
-            if (get_current_user_id() == $post->post_author) {
-                $alerts['my_alerts'][] = $post;
-            } else if (in_array(get_current_user_id(), $this->getIncidentResponders($post))) {
-                $alerts['my_responses'][] = $post;
-            }
-        }
-        foreach ($this->getScheduledAlerts(get_current_user_id()) as $post) {
-            if (get_current_user_id() == $post->post_author) {
-                $alerts['my_scheduled_alerts'][] = $post;
-            }
-        }
-
-        if (!empty($alerts['my_alerts']) || !empty($alerts['my_responses']) || !empty($alerts['my_scheduled_alerts'])) {
-            $wp_admin_bar->add_menu(array(
-                'id' => $this->prefix . 'active-incidents-menu',
-                'title' => __('Active alerts', 'better-angels')
-            ));
-        }
-
-        // Add group nodes to WP Toolbar
-        foreach ($alerts as $group_name => $posts) {
-            $wp_admin_bar->add_group(array(
-                'id' => $this->prefix . $group_name,
-                'parent' => $this->prefix . 'active-incidents-menu'
-            ));
-        }
-
-        $dtfmt = get_option('date_format') . ' ' . get_option('time_format');
-        foreach ($alerts['my_alerts'] as $post) {
-            $author = get_userdata($post->post_author);
-            $url = wp_nonce_url(
-                admin_url('?page=' . $this->prefix . 'incident-chat&' . $this->prefix . 'incident_hash=' . get_post_meta($post->ID, $this->prefix . 'incident_hash', true)),
-                $this->prefix . 'chat', $this->prefix . 'nonce'
-            );
-            $wp_admin_bar->add_node(array(
-                'id' => $this->prefix . 'active-incident-' . $post->ID,
-                'title' => sprintf(__('My alert on %2$s', 'better-angels'), $author->display_name, date($dtfmt, strtotime($post->post_date))),
-                'parent' => $this->prefix . 'my_alerts',
-                'href' => $url
-            ));
-        }
-
-        foreach ($alerts['my_responses'] as $post) {
-            $author = get_userdata($post->post_author);
-            $url = wp_nonce_url(
-                admin_url('?page=' . $this->prefix . 'incident-chat&' . $this->prefix . 'incident_hash=' . get_post_meta($post->ID, $this->prefix . 'incident_hash', true)),
-                $this->prefix . 'chat', $this->prefix . 'nonce'
-            );
-            $wp_admin_bar->add_node(array(
-                'id' => $this->prefix . 'active-incident-' . $post->ID,
-                'title' => sprintf(__('Alert issued by %1$s on %2$s', 'better-angels'), $author->display_name, date($dtfmt, strtotime($post->post_date))),
-                'parent' => $this->prefix . 'my_responses',
-                'href' => $url
-            ));
-        }
-
-        foreach ($alerts['my_scheduled_alerts'] as $post) {
-            $url = wp_nonce_url(
-                admin_url('admin-ajax.php?action=' . $this->prefix . 'unschedule-alert&alert_id=' . $post->ID . '&r=' . esc_url($_SERVER['REQUEST_URI'])),
-                $this->prefix . 'unschedule-alert', $this->prefix . 'nonce'
-            );
-            $wp_admin_bar->add_node(array(
-                'id' => $this->prefix . 'scheduled-alert-' . $post->ID,
-                'title' => sprintf(__('Cancel scheduled alert for %1$s','better-angels'), date($dtfmt, strtotime($post->post_date))),
-                'meta' => array(
-                    'title' => __('Cancel this alert', 'better-angels')
-                ),
-                'parent' => $this->prefix . 'my_scheduled_alerts',
-                'href' => $url
-            ));
         }
     }
 

@@ -69,13 +69,13 @@
     height: 100%;
 }
 
-#wpadminbar #wp-admin-bar-buoy_active-incidents-menu {
+#wpadminbar #wp-admin-bar-buoy-alerts-menu {
     background: red;
 }
-.admin-color-sunrise #wpadminbar #wp-admin-bar-buoy_active-incidents-menu {
+.admin-color-sunrise #wpadminbar #wp-admin-bar-buoy-alerts-menu {
     background: #096484;
 }
-#wp-toolbar > ul > li#wp-admin-bar-buoy_active-incidents-menu {
+#wp-toolbar > ul > li#wp-admin-bar-buoy-alerts-menu {
     display: list-item; /* always show, even on narrow screens */
 }
 
