@@ -245,7 +245,7 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
     /**
      * Sends a warning to a user if they no longer have responders.
      *
-     * @uses WP_Buoy_User::hasResponders()
+     * @uses WP_Buoy_User::has_responder()
      *
      * @param WP_Buoy_Team $team The team that has been emptied.
      *

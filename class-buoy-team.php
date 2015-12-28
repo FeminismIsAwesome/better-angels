@@ -72,31 +72,15 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     /**
      * Makes this team the default team of the author.
      *
-     * This will succeed if the user does not already have a default
-     * team. If the user does already have a default team, this will
-     * first check to make sure this team has at least one confirmed
-     * member before setting this to be the new default team.
-     *
-     * @uses WP_Buoy_User::get_default_team()
-     * @uses WP_Buoy_Team::has_responder()
      * @uses WP_Buoy_User_Settings::set()
      * @uses WP_Buoy_User_Settings::save()
      *
-     * @return bool True if this team is the new default.
+     * @return WP_Buoy_Team
      */
     public function make_default () {
-        $buoy_user = new WP_Buoy_User($this->author->ID);
         $usropt = new WP_Buoy_User_Settings($this->author->ID);
-        if ($buoy_user->get_default_team()) {
-            if ($this->has_responder()) {
-                $usropt->set('default_team', $this->wp_post->ID)->save();
-                return true;
-            }
-        } else {
-            $usropt->set('default_team', $this->wp_post->ID)->save();
-            return true;
-        }
-        return false;
+        $usropt->set('default_team', $this->wp_post->ID)->save();
+        return $this;
     }
 
     /**
@@ -448,12 +432,8 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
             $table = new WP_Posts_List_Table();
             if ('make_default' === $table->current_action()) {
                 $team = new WP_Buoy_Team(absint($_GET['post']));
-                $msg = parent::$prefix . '-';
-                if ($team->make_default()) {
-                    $msg .= 'default-team-updated';
-                } else {
-                    $msg .= 'default-team-errored';
-                }
+                $team->make_default();
+                $msg = parent::$prefix . '-default-team-updated';
                 wp_safe_redirect(admin_url(
                     "edit.php?post_type={$current_screen->post_type}&msg=$msg"
                 ));
@@ -502,10 +482,6 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
                 parent::$prefix . '-default-team-updated' => array(
                     'class' => 'notice updated is-dismissible',
                     'message' => __('Default team updated.', 'buoy')
-                ),
-                parent::$prefix . '-default-team-errored' => array(
-                    'class' => 'notice error is-dismissible',
-                    'message' => __('Could not set the default team. Make sure it has at least one confirmed member and is published.', 'buoy')
                 )
             );
             if (array_key_exists($_GET['msg'], $notices)) {
