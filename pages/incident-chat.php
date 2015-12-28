@@ -35,7 +35,7 @@ $auto_show_modal = ($curr_user->ID === $alerter->wp_user->ID) ? 'auto-show-modal
     data-incident-hash="<?php print esc_attr($alert->get_hash());?>"
     data-incident-latitude="<?php print esc_attr(get_post_meta($alert->wp_post->ID, 'geo_latitude', true));?>"
     data-incident-longitude="<?php print esc_attr(get_post_meta($alert->wp_post->ID, 'geo_longitude', true));?>"
-    data-responder-info='<?php // TODO: // print esc_attr(json_encode($this->getResponderInfo($alert->wp_post)));?>'
+    data-responder-info='<?php print esc_attr(json_encode($alert->get_incident_state()));?>'
     data-my-avatar-url="<?php print esc_attr(get_avatar_url(get_current_user_id(), array('size' => 32)));?>"
     >
     <div id="map">

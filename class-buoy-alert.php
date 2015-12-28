@@ -842,7 +842,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
             $meta_input['geo_longitude'] = $alert_position['longitude'];
         }
         if (isset($_POST['teams']) && is_array($_POST['teams'])) {
-            $meta_input[parent::$prefix . '_teams'] = array_map('absint', $alert_teams);
+            $meta_input[parent::$prefix . '_teams'] = array_map('absint', $_POST['teams']);
         }
 
         // Create and publish the new alert.

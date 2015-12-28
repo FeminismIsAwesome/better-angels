@@ -25,7 +25,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      *
      * @var WP_Post
      */
-    private $post;
+    public $wp_post;
 
     /**
      * The team owner.
@@ -51,17 +51,10 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @return WP_Buoy_Team
      */
     public function __construct ($team_id) {
-        $this->post = get_post($team_id);
-        $this->members = array_map('get_userdata', array_unique(get_post_meta($this->post->ID, '_team_members')));
-        $this->author = get_userdata($this->post->post_author);
+        $this->wp_post = get_post($team_id);
+        $this->members = array_map('get_userdata', array_unique(get_post_meta($this->wp_post->ID, '_team_members')));
+        $this->author = get_userdata($this->wp_post->post_author);
         return $this;
-    }
-
-    /**
-     * @param string $name
-     */
-    public function __get ($name) {
-        return $this->$name;
     }
 
     /**
@@ -72,21 +65,38 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @return bool
      */
     public function is_default () {
-        $usropt = new WP_Buoy_User_Settings($this->author);
-        return $this->post->ID == $usropt->get('default_team');
+        $usropt = new WP_Buoy_User_Settings($this->author->ID);
+        return $this->wp_post->ID == $usropt->get('default_team');
     }
 
     /**
      * Makes this team the default team of the author.
      *
-     * @uses WP_Buoy_User_Settings::set()
+     * This will succeed if the user does not already have a default
+     * team. If the user does already have a default team, this will
+     * first check to make sure this team has at least one confirmed
+     * member before setting this to be the new default team.
      *
-     * @return WP_Buoy_Team
+     * @uses WP_Buoy_User::get_default_team()
+     * @uses WP_Buoy_Team::has_responder()
+     * @uses WP_Buoy_User_Settings::set()
+     * @uses WP_Buoy_User_Settings::save()
+     *
+     * @return bool True if this team is the new default.
      */
     public function make_default () {
-        $usropt = new WP_Buoy_User_Settings($this->author);
-        $usropt->set('default_team', $this->post->ID)->save();
-        return $this;
+        $buoy_user = new WP_Buoy_User($this->author->ID);
+        $usropt = new WP_Buoy_User_Settings($this->author->ID);
+        if ($buoy_user->get_default_team()) {
+            if ($this->has_responder()) {
+                $usropt->set('default_team', $this->wp_post->ID)->save();
+                return true;
+            }
+        } else {
+            $usropt->set('default_team', $this->wp_post->ID)->save();
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -98,7 +108,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @return string[] IDs are actually returned as string values.
      */
     public function get_member_ids () {
-        return array_unique(get_post_meta($this->post->ID, '_team_members'));
+        return array_unique(get_post_meta($this->wp_post->ID, '_team_members'));
     }
 
     /**
@@ -129,7 +139,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @return WP_Buoy_Team
      */
     public function add_member ($user_id) {
-        add_post_meta($this->post->ID, '_team_members', $user_id, false);
+        add_post_meta($this->wp_post->ID, '_team_members', $user_id, false);
 
         /**
          * Fires when a user is added to a team.
@@ -153,7 +163,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @return WP_Buoy_Team
      */
     public function remove_member ($user_id) {
-        delete_post_meta($this->post->ID, '_team_members', $user_id);
+        delete_post_meta($this->wp_post->ID, '_team_members', $user_id);
 
         /**
          * Fires when a user is removed from a team.
@@ -176,7 +186,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @return WP_Buoy_Team
      */
     public function confirm_member ($user_id) {
-        add_post_meta($this->post->ID, "_member_{$user_id}_is_confirmed", true, true);
+        add_post_meta($this->wp_post->ID, "_member_{$user_id}_is_confirmed", true, true);
         return $this;
     }
 
@@ -190,7 +200,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @return WP_Buoy_Team
      */
     public function unconfirm_member ($user_id) {
-        delete_post_meta($this->post->ID, "_member_{$user_id}_is_confirmed");
+        delete_post_meta($this->wp_post->ID, "_member_{$user_id}_is_confirmed");
         return $this;
     }
 
@@ -206,7 +216,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @return bool
      */
     public function is_confirmed ($user_id) {
-        return get_post_meta($this->post->ID, "_member_{$user_id}_is_confirmed", true);
+        return get_post_meta($this->wp_post->ID, "_member_{$user_id}_is_confirmed", true);
     }
 
     /**
@@ -291,6 +301,8 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         );
 
         add_action('current_screen', array(__CLASS__, 'processTeamTableActions'));
+
+        add_action('admin_notices', array(__CLASS__, 'renderAdminNotices'));
 
         add_action('admin_menu', array(__CLASS__, 'registerAdminMenu'));
 
@@ -436,9 +448,14 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
             $table = new WP_Posts_List_Table();
             if ('make_default' === $table->current_action()) {
                 $team = new WP_Buoy_Team(absint($_GET['post']));
-                $team->make_default();
+                $msg = parent::$prefix . '-';
+                if ($team->make_default()) {
+                    $msg .= 'default-team-updated';
+                } else {
+                    $msg .= 'default-team-errored';
+                }
                 wp_safe_redirect(admin_url(
-                    "edit.php?post_type={$current_screen->post_type}"
+                    "edit.php?post_type={$current_screen->post_type}&msg=$msg"
                 ));
                 exit();
             }
@@ -467,6 +484,36 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
                     . '&post_type=' . urlencode($_GET['post_type'])
                 ));
                 exit();
+            }
+        }
+    }
+
+    /**
+     * Prints an admin notice for the given message code.
+     *
+     * @global $_GET['msg']
+     *
+     * @return void
+     */
+    public static function renderAdminNotices () {
+        if (isset($_GET['msg'])) {
+            $notices = array(
+                // message-code => array('class' => 'css-class', 'message' => "Message text.")
+                parent::$prefix . '-default-team-updated' => array(
+                    'class' => 'notice updated is-dismissible',
+                    'message' => __('Default team updated.', 'buoy')
+                ),
+                parent::$prefix . '-default-team-errored' => array(
+                    'class' => 'notice error is-dismissible',
+                    'message' => __('Could not set the default team. Make sure it has at least one confirmed member and is published.', 'buoy')
+                )
+            );
+            if (array_key_exists($_GET['msg'], $notices)) {
+?>
+<div class="<?php print esc_attr($notices[$_GET['msg']]['class']);?>">
+    <p><?php print esc_html($notices[$_GET['msg']]['message']);?></p>
+</div>
+<?php
             }
         }
     }
@@ -606,7 +653,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
              *
              * @param WP_Buoy_Team $team
              */
-            do_action($team->post->post_type . '_emptied', $team);
+            do_action($team->wp_post->post_type . '_emptied', $team);
         }
     }
 
@@ -802,6 +849,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @link https://developer.wordpress.org/reference/hooks/post_row_actions/
      *
      * @uses WP_Buoy_Team::is_default()
+     * @uses WP_Buoy_Team::has_responder()
      *
      * @param array $items
      * @param WP_Post $post
@@ -810,7 +858,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      */
     public static function postRowActions ($items, $post) {
         $team = new WP_Buoy_Team($post->ID);
-        if (!$team->is_default() && 'publish' === $post->post_status) {
+        if (!$team->is_default() && $team->has_responder() && 'publish' === $post->post_status) {
             $url = admin_url('post.php?post=' . $post->ID . '&action=make_default');
             $items['default'] = '<a href="' . esc_attr($url) . '">' . __('Make default', 'buoy') . '</a>';
         }

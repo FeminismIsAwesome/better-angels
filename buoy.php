@@ -36,7 +36,7 @@ if (!defined('WP_BUOY_MIN_PHP_VERSION')) {
      * We need PHP 5.3 or later since WP_Buoy_Plugin::error_msg() uses
      * late static binding to get caller information in child classes.
      *
-     * @see https://secure.php.net/manual/en/language.oop5.late-static-bindings.php
+     * @link https://secure.php.net/manual/en/language.oop5.late-static-bindings.php
      */
     define('WP_BUOY_MIN_PHP_VERSION', '5.3');
 }

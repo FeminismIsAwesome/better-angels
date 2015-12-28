@@ -41,12 +41,12 @@ class WP_Buoy_Notification extends WP_Buoy_Plugin {
      * @return void
      */
     public static function addedToTeam ($user_id, $team) {
-        add_post_meta($team->post->ID, '_' . parent::$prefix . '_notify', $user_id, false);
+        add_post_meta($team->wp_post->ID, '_' . parent::$prefix . '_notify', $user_id, false);
 
         // Call the equivalent of the "status_type" hook since adding
         // a member may have happened after publishing the post itself.
         // This catches any just-added members.
-        do_action("{$team->post->post_status}_{$team->post->post_type}", $team->post->ID, $team->post);
+        do_action("{$team->wp_post->post_status}_{$team->wp_post->post_type}", $team->wp_post->ID, $team->wp_post);
     }
 
     /**
@@ -58,7 +58,7 @@ class WP_Buoy_Notification extends WP_Buoy_Plugin {
      * @return void
      */
     public static function removedFromTeam ($user_id, $team) {
-        delete_post_meta($team->post->ID, '_' . parent::$prefix . '_notify', $user_id);
+        delete_post_meta($team->wp_post->ID, '_' . parent::$prefix . '_notify', $user_id);
     }
 
     /**
@@ -73,16 +73,16 @@ class WP_Buoy_Notification extends WP_Buoy_Plugin {
      */
     public static function inviteMembers ($post_id, $post) {
         $team      = new WP_Buoy_Team($post_id);
-        $buoy_user = new WP_Buoy_User($team->author->ID);
+        $buoy_user = new WP_Buoy_User($post->post_author);
         $to_notify = array_unique(get_post_meta($post_id, '_' . parent::$prefix . '_notify'));
         $subject = sprintf(
             __('%1$s wants you to join %2$s crisis response team.', 'buoy'),
-            $team->author->display_name, $buoy_user->get_pronoun()
+            $buoy_user->wp_user->display_name, $buoy_user->get_pronoun()
         );
         foreach ($to_notify as $user_id) {
             // TODO: Write a better message.
             $msg = admin_url(
-                'edit.php?post_type=' . $team->post->post_type . '&page=' . parent::$prefix . '_team_membership'
+                'edit.php?post_type=' . $team->wp_post->post_type . '&page=' . parent::$prefix . '_team_membership'
             );
             $user = get_userdata($user_id);
             wp_mail($user->user_email, $subject, $msg);
