@@ -31,7 +31,7 @@ $auto_show_modal = ($curr_user->ID === $alerter->wp_user->ID) ? 'auto-show-modal
         </div>
     </div><!-- /.btn-toolbar -->
 </div><!-- /.well.well-sm -->
-<div id="map-container" class="container-fluid"
+<div id="map-container"
     data-incident-hash="<?php print esc_attr($alert->get_hash());?>"
     data-incident-latitude="<?php print esc_attr(get_post_meta($alert->wp_post->ID, 'geo_latitude', true));?>"
     data-incident-longitude="<?php print esc_attr(get_post_meta($alert->wp_post->ID, 'geo_longitude', true));?>"

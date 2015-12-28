@@ -154,7 +154,8 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
      * @return string
      */
     public function get_crisis_message () {
-        return sanitize_text_field($this->get_option('crisis_message', __('Please help!', 'buoy')));
+        $msg = sanitize_text_field($this->get_option('crisis_message'));
+        return ($msg) ? $msg : __('Please help!', 'buoy');
     }
 
     /**

@@ -63,8 +63,7 @@
 }
 .dashboard_page_buoy_chat #map-container {
      display: none;
-     padding: 0;
- }
+}
 .dashboard_page_buoy_chat #map,
 .dashboard_page_buoy_review_alert #map {
     height: 100%;

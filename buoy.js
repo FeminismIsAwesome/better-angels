@@ -408,7 +408,7 @@ var BUOY = (function () {
         });
 
         jQuery(window).on('load', function () {
-            if (jQuery('.dashboard_page_buoy_chat #map, .dashboard_page_buoy_review-alert #map').length) {
+            if (jQuery('.dashboard_page_buoy_chat #map, .dashboard_page_buoy_review_alert #map').length) {
                 this.emergency_location = {
                     'lat': parseFloat(jQuery('#map-container').data('incident-latitude')),
                     'lng': parseFloat(jQuery('#map-container').data('incident-longitude'))
@@ -423,7 +423,7 @@ var BUOY = (function () {
                     initMap(this.emergency_location, true);
                 }
             }
-            if (jQuery('.dashboard_page_buoy_review-alert #map').length) {
+            if (jQuery('.dashboard_page_buoy_review_alert #map').length) {
                 addMarkerForCurrentLocation();
             }
         });
