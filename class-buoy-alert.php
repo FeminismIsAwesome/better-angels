@@ -114,14 +114,12 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     /**
      * Get an alert from the WordPress database based on lookup value.
      *
-     * @param int|WP_Post|string $lookup The lookup value.
+     * @param string|int $lookup The lookup value.
      *
      * @return WP_Buoy_Alert
      */
     public function load ($lookup) {
-        if (get_post_status($lookup)) {
-            $this->wp_post = get_post($lookup);
-        } else if (strlen($lookup) > 7) {
+        if (strlen($lookup) > 7) {
             $posts = get_posts(array(
                 'post_type' => parent::$prefix . '_alert',
                 'meta_query' => array(
@@ -138,9 +136,12 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
                     )
                 )
             ));
-            if (!empty($posts)) {
-                $this->wp_post = array_pop($posts);
-            }
+        }
+
+        if (!empty($posts)) {
+            $this->wp_post = array_pop($posts);
+        } else {
+            $this->wp_post = get_post($lookup);
         }
 
         if ($this->wp_post) {
