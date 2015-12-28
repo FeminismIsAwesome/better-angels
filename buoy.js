@@ -85,9 +85,7 @@ var BUOY = (function () {
 
     var scheduleAlert = function (callback) {
         var data = {
-            'action': jQuery('#activate-alert-form input[name="action"]')
-                .val()
-                .replace('_findme', '_schedule-alert'),
+            'action': jQuery('#activate-alert-form input[name="action"]').val(),
             'msg': jQuery('#scheduled-crisis-message').val(),
             'scheduled-datetime-utc': new Date(jQuery('#scheduled-datetime-tz').val()).toUTCString(),
             'buoy_nonce': jQuery('#buoy_nonce').val()
@@ -392,12 +390,12 @@ var BUOY = (function () {
                 var a_el = jQuery(this);
                 a_el.on('click', function (e) {
                     e.preventDefault();
-                    jQuery.post(a_el.attr('href'), {'action': 'buoy_unschedule-alert'},
+                    jQuery.post(a_el.attr('href'), {'action': 'buoy_unschedule_alert'},
                         function (response) {
                             if (response.success) {
                                 a_el.remove();
                                 if (0 === countIncidentMenuItems()) {
-                                    jQuery('#wp-admin-bar-buoy_active-incidents-menu').remove();
+                                    jQuery('#wp-admin-bar-buoy-alert-menu').remove();
                                 }
                             }
                         },
@@ -431,7 +429,7 @@ var BUOY = (function () {
     };
 
     var countIncidentMenuItems = function () {
-        return jQuery('#wp-admin-bar-buoy_active-incidents-menu a').length;
+        return jQuery('#wp-admin-bar-buoy-alert-menu a').length;
     };
 
     var installWebApp = function () {

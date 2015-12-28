@@ -161,7 +161,7 @@ class WP_Buoy_Plugin {
     /**
      * Returns the "Requires at least" value from plugin's readme.txt.
      *
-     * @see https://wordpress.org/plugins/about/readme.txt WordPress `readme.txt` standard.
+     * @link https://wordpress.org/plugins/about/readme.txt WordPress readme.txt standard
      *
      * @return string
      */
@@ -200,10 +200,12 @@ class WP_Buoy_Plugin {
     }
 
     /**
+     * Attaches on-screen help tabs to the WordPress built-in help.
+     *
      * Loads the appropriate document from the localized `help` folder
      * and inserts it as a help tab on the current screen.
      *
-     * @uses WP_Screen_Help_loader::applyTabs()
+     * @uses WP_Screen_Help_Loader::applyTabs()
      *
      * @return void
      */
@@ -238,8 +240,13 @@ class WP_Buoy_Plugin {
     }
 
     /**
-     * Prints a message to the WordPress `wp-content/debug.log` file
-     * if the plugin's "detailed debugging" setting is enabled.
+     * Prints a message to the WordPress debug log if the plugin's
+     * "detailed debugging" setting is enabled.
+     *
+     * By default, the WordPress debug log is `wp-content/debug.log`
+     * relative to the WordPress installation root (`ABSPATH`).
+     *
+     * @link https://codex.wordpress.org/Debugging_in_WordPress
      *
      * @uses WP_Buoy_Settings::get()
      *

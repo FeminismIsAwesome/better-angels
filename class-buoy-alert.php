@@ -117,11 +117,14 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
      * @param string|int $lookup The lookup value.
      *
      * @return WP_Buoy_Alert
+     *
+     * @throws Exception If no alert could be found using `$lookup`.
      */
     public function load ($lookup) {
         if (strlen($lookup) > 7) {
             $posts = get_posts(array(
                 'post_type' => self::$prefix . '_alert',
+                'post_status' => array('publish', 'future'),
                 'meta_query' => array(
                     'relation' => 'OR',
                     array(
@@ -151,6 +154,8 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
             $this->_teams = array_map(
                 'absint', get_post_meta($this->wp_post->ID, self::$prefix . '_teams', true)
             );
+        } else {
+            throw new Exception(sprintf(__('No alert with lookup "%s" found.', 'buoy'), $lookup));
         }
 
         return $this;
@@ -466,6 +471,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
         add_action('admin_menu', array(__CLASS__, 'registerAdminMenu'));
 
         add_action('wp_ajax_' . self::$prefix . '_new_alert', array(__CLASS__, 'handleNewAlert'));
+        add_action('wp_ajax_' . self::$prefix . '_unschedule_alert', array(__CLASS__, 'handleUnscheduleAlert'));
         add_action('wp_ajax_' . self::$prefix . '_update_location', array(__CLASS__, 'handleLocationUpdate'));
         add_action('wp_ajax_' . self::$prefix . '_dismiss_installer', array(__CLASS__, 'handleDismissInstaller'));
 
@@ -929,6 +935,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
     public static function handleNewAlert () {
         check_ajax_referer(self::$prefix . '_new_alert', self::$prefix . '_nonce');
 
+        $postarr    = array();
         $meta_input = array();
 
         // Collect info from the browser via Ajax request
@@ -940,41 +947,95 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
         if (isset($_POST['teams']) && is_array($_POST['teams'])) {
             $meta_input[self::$prefix . '_teams'] = array_map('absint', $_POST['teams']);
         }
-
         // Create and publish the new alert.
         $buoy_user = new WP_Buoy_User(get_current_user_id());
-        $alert_subject = (empty($_POST['msg']))
+        $postarr['post_title'] = (empty($_POST['msg']))
             ? $buoy_user->get_crisis_message()
             : sanitize_text_field(stripslashes_deep($_POST['msg']));
 
-        $postarr = array('post_title' => $alert_subject);
         if (!empty($meta_input)) {
             $postarr['meta_input'] = $meta_input;
         }
 
+        $err = new WP_Error();
+        if (isset($_POST['scheduled-datetime-utc'])) {
+            // TODO: Scheduled alerts should be their own function?
+            $old_timezone = date_default_timezone_get();
+            date_default_timezone_set('UTC');
+            $when_utc = strtotime(stripslashes_deep($_POST['scheduled-datetime-utc']));
+            if (!$when_utc) {
+                $err->add(
+                    'scheduled-datetime-utc',
+                    __('Buoy could not understand the date and time you entered.', 'buoy')
+                );
+            } else {
+                $dt = new DateTime("@$when_utc");
+                // TODO: This fails to offset the UTC time back to server-local time
+                //       correctly if the WP site is manually offset by a 30 minute
+                //       offset instead of an hourly offset.
+                $dt->setTimeZone(new DateTimeZone(wp_get_timezone_string()));
+                $postarr['post_date']     = $dt->format('Y-m-d H:i:s');
+                $postarr['post_date_gmt'] = gmdate('Y-m-d H:i:s', $when_utc);
+                $postarr['post_status']   = 'future';
+            }
+            date_default_timezone_set($old_timezone);
+        }
+
         $buoy_alert = new self();
         $post_id = $buoy_alert->set($postarr)->save();
+
         if (is_wp_error($post_id)) {
             wp_send_json_error($post_id);
-        }
-
-        // Construct the redirect URL to the alerter's chat room
-        $next_url = wp_nonce_url(
-            admin_url(
-                '?page=' . self::$prefix . '_chat'
-                . '&' . self::$prefix . '_hash=' . $buoy_alert->get_hash()
-            ),
-            self::$prefix . '_chat', self::$prefix . '_nonce'
-        );
-
-        if (isset($_SERVER['HTTP_ACCEPT'])) {
-            $accepts = explode(',', $_SERVER['HTTP_ACCEPT']);
-        }
-        if ($accepts && 'application/json' === array_shift($accepts)) {
-            wp_send_json_success($next_url);
+        } else if (!empty($err->errors)) {
+            wp_send_json_error($err);
+        } else if (isset($_POST['scheduled-datetime-utc']) && empty($err->errors)) {
+            wp_send_json_success(array(
+                'id' => $post_id,
+                'message' => __('Your timed alert has been scheduled. Schedule another?', 'buoy')
+            ));
         } else {
-            wp_safe_redirect(html_entity_decode($next_url));
-            exit();
+            // Construct the redirect URL to the alerter's chat room
+            $next_url = wp_nonce_url(
+                admin_url(
+                    '?page=' . self::$prefix . '_chat'
+                    . '&' . self::$prefix . '_hash=' . $buoy_alert->get_hash()
+                ),
+                self::$prefix . '_chat', self::$prefix . '_nonce'
+            );
+
+            if (isset($_SERVER['HTTP_ACCEPT'])) {
+                $accepts = explode(',', $_SERVER['HTTP_ACCEPT']);
+            }
+            if ($accepts && 'application/json' === array_shift($accepts)) {
+                wp_send_json_success($next_url);
+            } else {
+                wp_safe_redirect(html_entity_decode($next_url));
+                exit();
+            }
+        }
+    }
+
+    /**
+     * Cancels a scheduled alert by deleting it from the database.
+     *
+     * @global $_GET
+     *
+     * @return void
+     */
+    public static function handleUnscheduleAlert () {
+        if (isset($_GET[self::$prefix . '_nonce']) && wp_verify_nonce($_GET[self::$prefix . '_nonce'], self::$prefix . '_unschedule_alert')) {
+            $alert = new WP_Buoy_Alert($_GET[self::$prefix . '_hash']);
+            if ($alert && get_current_user_id() == $alert->wp_post->post_author) {
+                wp_delete_post($alert->wp_post->ID, true);
+                if (isset($_SERVER['HTTP_ACCEPT']) && false === strpos($_SERVER['HTTP_ACCEPT'], 'application/json')) {
+                    wp_safe_redirect(urldecode($_GET['r']));
+                    exit();
+                } else {
+                    wp_send_json_success();
+                }
+            }
+        } else {
+            wp_send_json_error();
         }
     }
 
@@ -1152,4 +1213,49 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
         return $html;
     }
 
+}
+
+/**
+ * Helpers.
+ */
+if (!function_exists('wp_get_timezone_string')) {
+    /**
+    * Get the timezone string for a site.
+    *
+    * @link https://secure.php.net/manual/en/function.timezone-name-from-abbr.php#89155
+    *
+    * @link https://github.com/woothemes/woocommerce/blob/5893875b0c03dda7b2d448d1a904ccfad3cdae3f/includes/wc-formatting-functions.php#L441-L485
+    *
+    * @link http://core.trac.wordpress.org/ticket/24730
+    *
+    * @return string valid PHP timezone string
+    */
+    function wp_get_timezone_string() {
+        // if site timezone string exists, return it
+        if ( $timezone = get_option( 'timezone_string' ) ) {
+            return $timezone;
+        }
+        // get UTC offset, if it isn't set then return UTC
+        if ( 0 === ( $utc_offset = get_option( 'gmt_offset', 0 ) ) ) {
+            return 'UTC';
+        }
+        // adjust UTC offset from hours to seconds
+        $utc_offset *= 3600;
+        // attempt to guess the timezone string from the UTC offset
+        $timezone = timezone_name_from_abbr( '', $utc_offset, 0 );
+        // last try, guess timezone string manually
+        if ( false === $timezone ) {
+            $is_dst = date( 'I' );
+            foreach ( timezone_abbreviations_list() as $abbr ) {
+                foreach ( $abbr as $city ) {
+                    if ( $city['dst'] == $is_dst && $city['offset'] == $utc_offset ) {
+                        return $city['timezone_id'];
+                    }
+                }
+            }
+            // fallback to UTC
+            return 'UTC';
+        }
+        return $timezone;
+    }
 }
