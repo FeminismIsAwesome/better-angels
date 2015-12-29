@@ -44,6 +44,13 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     private $members = array();
 
     /**
+     * Addresses of people without accounts who were invited to join.
+     *
+     * @var string[]
+     */
+    private $_invitees;
+
+    /**
      * Constructor.
      *
      * @param int $team_id The post ID of the team.
@@ -53,6 +60,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     public function __construct ($team_id) {
         $this->wp_post = get_post($team_id);
         $this->members = array_map('get_userdata', array_unique(get_post_meta($this->wp_post->ID, '_team_members')));
+        $this->_invitees = array_unique(get_post_meta($this->wp_post->ID, '_invitees'));
         $this->author = get_userdata($this->wp_post->post_author);
         return $this;
     }
@@ -96,6 +104,15 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     }
 
     /**
+     * Gets a list of all email addresses invited to join this team.
+     *
+     * @return string[]
+     */
+    public function get_invited_users () {
+        return array_unique(get_post_meta($this->wp_post->ID, '_invitees'));
+    }
+
+    /**
      * Checks whether or not the given user ID is on the team.
      *
      * This does not check whether the user is confirmed or not, only
@@ -113,25 +130,37 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     }
 
     /**
+     * Adds an invitation for this email address to this team.
+     *
+     * @param string $email
+     */
+    public function invite_user ($email) {
+        add_post_meta($this->wp_post->ID, '_invitees', $email, false);
+
+        /**
+         * Fires when a user is added or invited to a team.
+         *
+         * @param int|string $added A user ID or the email address of the new user.
+         * @param WP_Buoy_Team $this
+         */
+        do_action(self::$prefix . '_team_member_added', $email, $this);
+    }
+
+    /**
      * Adds a user to this team (a new member).
      *
      * @uses add_post_meta()
      * @uses do_action()
      *
      * @param int $user_id
+     * @param bool $notify Whether or not to trigger a notification when adding.
      *
      * @return WP_Buoy_Team
      */
-    public function add_member ($user_id) {
+    public function add_member ($user_id, $notify = true) {
         add_post_meta($this->wp_post->ID, '_team_members', $user_id, false);
 
-        /**
-         * Fires when a user is added to a team.
-         *
-         * @param int $user_id
-         * @param WP_Buoy_Team $this
-         */
-        do_action(self::$prefix . '_team_member_added', $user_id, $this);
+        do_action(self::$prefix . '_team_member_added', $user_id, $this, $notify);
 
         return $this;
     }
@@ -148,6 +177,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      */
     public function remove_member ($user_id) {
         delete_post_meta($this->wp_post->ID, '_team_members', $user_id);
+        delete_post_meta($this->wp_post->ID, '_invitees', $user_id);
 
         /**
          * Fires when a user is removed from a team.
@@ -304,8 +334,9 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         add_filter("manage_{$post_type}_posts_columns", array(__CLASS__, 'filterTeamPostsColumns'));
         add_filter("manage_edit-{$post_type}_sortable_columns", array(__CLASS__, 'filterSortableColumns'));
         add_action('wp', array(__CLASS__, 'orderTeamPosts'));
-
         add_action("manage_{$post_type}_posts_custom_column", array(__CLASS__, 'renderTeamPostsColumn'), 10, 2);
+
+        add_action('user_register', array(__CLASS__, 'checkInvitations'));
     }
 
     /**
@@ -481,7 +512,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
                 // message-code => array('class' => 'css-class', 'message' => "Message text.")
                 self::$prefix . '-default-team-updated' => array(
                     'class' => 'notice updated is-dismissible',
-                    'message' => __('Default team updated.', 'buoy')
+                    'message' => esc_html__('Default team updated.', 'buoy')
                 )
             );
             if (array_key_exists($_GET['msg'], $notices)) {
@@ -571,10 +602,23 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         }
 
         // Add a new team member
+        $add_team_member_input = $_POST[self::$prefix . '_add_team_member'];
         if (isset($_POST[self::$prefix . '_add_team_member_nonce']) && wp_verify_nonce($_POST[self::$prefix . '_add_team_member_nonce'], self::$prefix . '_add_team_member')) {
-            $user_id = username_exists($_REQUEST[self::$prefix . '_add_team_member']);
-            if (false !== $user_id && !in_array($user_id, $team->get_member_ids())) {
-                $team->add_member($user_id);
+            $user_id = username_exists($add_team_member_input);
+            if (false !== $user_id) {
+                if (!in_array($user_id, $team->get_member_ids())) {
+                    $team->add_member($user_id);
+                }
+            } else {
+                if (is_email($add_team_member_input)) {
+                    $email = $add_team_member_input;
+                    $user = get_user_by('email', $email);
+                    if ($user) {
+                        $team->add_member($user->ID);
+                    } else {
+                        $team->invite_user($email);
+                    }
+                }
             }
         }
 
@@ -841,6 +885,39 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
 
         unset($items['inline hide-if-no-js']); // the "Quick Edit" link
         return $items;
+    }
+
+    /**
+     * Adds a user to teams they were invited to join before they had
+     * created an account.
+     *
+     * @param int $user_id
+     *
+     * @return void
+     */
+    public static function checkInvitations ($user_id) {
+        $user = get_userdata($user_id);
+        $team_posts = self::getAllTeamPosts();
+        foreach ($team_posts as $post) {
+            $team = new WP_Buoy_Team($post->ID);
+            if (in_array($user->user_email, $team->get_invited_users())) {
+                $team->remove_member($user->user_email); // removes the invitation
+                $team->add_member($user_id, false);      // then adds the user
+            }
+        }
+    }
+
+    /**
+     * Gets a list of all team posts.
+     *
+     * @return WP_Post[]
+     */
+    public static function getAllTeamPosts () {
+        return get_posts(array(
+            'post_type' => self::$prefix . '_team',
+            'post_status' => array('publish', 'draft', 'trash'),
+            'posts_per_page' => -1
+        ));
     }
 
 }

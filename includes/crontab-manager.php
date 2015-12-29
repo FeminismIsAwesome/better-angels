@@ -85,7 +85,7 @@ class Buoy_Crontab_Manager {
      *
      * @param string|string[] $jobs Cron jobs to add.
      *
-     * @return self
+     * @return Buoy_Crontab_Manager
      */
     public function appendCronJobs ($jobs) {
         if (is_string($jobs)) { $jobs = array($jobs); }
@@ -100,7 +100,7 @@ class Buoy_Crontab_Manager {
      *
      * @param string $job_patterns Regex pattern of cron jobs to remove.
      *
-     * @return self
+     * @return Buoy_Crontab_Manager
      */
     public function removeCronJobs ($job_patterns) {
         if (is_string($job_patterns)) { $job_patterns = array($job_patterns); }
@@ -119,7 +119,7 @@ class Buoy_Crontab_Manager {
     /**
      * Deletes the crontab file from the filesystem.
      *
-     * @return self
+     * @return Buoy_Crontab_Manager
      */
     private function removeCrontab () {
         system('crontab -r');
@@ -129,7 +129,7 @@ class Buoy_Crontab_Manager {
     /**
      * Saves the current crontab contents to the filesystem.
      *
-     * @return self
+     * @return Buoy_Crontab_Manager
      *
      * @throws RuntimeException If an error occurrs during crontab installation.
      */

@@ -7,20 +7,25 @@
             <td>
                 <ul>
 <?php
-$team = array_unique(get_post_meta($post->ID, '_team_members'));
-foreach ($team as $user_id) :
-    $user = get_userdata($user_id);
-    $is_confirmed = get_post_meta($post->ID, "_member_{$user_id}_is_confirmed", true);
+$team = new WP_Buoy_Team($post->ID);
+$users = array_merge($team->get_member_ids(), $team->get_invited_users());
+foreach ($users as $user_id) :
+    if (is_email($user_id)) {
+        $display_name = $user_id;
+    } else {
+        $wp_user = get_userdata($user_id);
+        $display_name = $wp_user->display_name;
+    }
 ?>
                     <li>
                         <label>
                             <input
                                 type="checkbox"
                                 name="remove_team_members[]"
-                                value="<?php print esc_attr($user->ID);?>"
+                                value="<?php print esc_attr($user_id);?>"
                             />
-                            <?php print esc_html($user->display_name);?>
-                            <span class="description">(<?php ($is_confirmed) ? esc_html_e('confirmed', 'buoy') : esc_html_e('pending', 'buoy') ;?>)</span>
+                            <?php print esc_html($display_name);?>
+                            <span class="description">(<?php ($team->is_confirmed($user_id)) ? esc_html_e('confirmed', 'buoy') : esc_html_e('pending', 'buoy') ;?>)</span>
                         </label>
                     </li>
 <?php

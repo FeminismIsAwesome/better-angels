@@ -44,6 +44,13 @@ Once activated, each user who wants to use Buoy must define their personal respo
 
 Read the [Buoy Administration Guide](https://github.com/meitar/better-angels/wiki/Buoy-Administration-Guide) for more information on how to administer a Buoy for your community.
 
+= Installation notes and troubleshooting =
+
+If you are having trouble installing Buoy, make sure the computer hosting your website meets the following minimum requirements:
+
+* PHP 5.3 or greater is installed.
+* You have installed or updated to the version of WordPress mentioned in the **Requires** field of this file.
+
 == Frequently Asked Questions ==
 
 = Where do I get Buoy? I don't see it in the app store. =

@@ -13,6 +13,9 @@ if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
 
 /**
  * Manages interaction between WordPress API and Buoy user settings.
+ *
+ * @todo Make better use of WP_User's magic accessors, which can also
+ *       be used to automatically fetch usermeta settings.
  */
 class WP_Buoy_User extends WP_Buoy_Plugin {
 

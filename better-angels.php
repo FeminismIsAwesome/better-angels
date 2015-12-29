@@ -1,22 +1,13 @@
 <?php
 /**
- * Plugin Name: Buoy (a Better Angels first responder system)
- * Plugin URI: https://github.com/meitar/better-angels
- * Description: Tell your friends where you are and what you need. (A community-driven emergency first responder system.) <strong>Like this plugin? Please <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&amp;business=TJLPJYXHSRBEE&amp;lc=US&amp;item_name=Better%20Angels&amp;item_number=better-angels&amp;currency_code=USD&amp;bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted" title="Send a donation to the developer of Better Angels">donate</a>. &hearts; Thank you!</strong>
- * Version: 0.1
- * Author: Maymay <bitetheappleback@gmail.com>
- * Author URI: http://maymay.net/
- * Text Domain: better-angels
- * Domain Path: /languages
+ * This is the old original code, now deprecated, will be removed in next merge.
+ *
+ * @deprecated
  */
 
 if (!defined('ABSPATH')) { exit; } // Disallow direct HTTP access.
 
 class BetterAngelsPlugin {
-
-    private $prefix = 'better-angels_'; //< Internal prefix for settings, etc., derived from shortcode.
-    private $incident_hash; //< Hash of the current incident ("alert").
-    private $chat_room_name; //< The name of the chat room for this incident.
 
     private $default_alert_ttl_num = 2;
     private $default_alert_ttl_multiplier = DAY_IN_SECONDS;
@@ -24,10 +15,6 @@ class BetterAngelsPlugin {
     private $Error; //< WP_Error object
 
     public function __construct () {
-        $this->Error = new WP_Error();
-
-        add_action('admin_notices', array($this, 'showAdminNotices'));
-
         add_action('wp_ajax_' . $this->prefix . 'upload-media', array($this, 'handleMediaUpload'));
 
         add_action('update_option_' . $this->prefix . 'settings', array($this, 'updatedSettings'), 10, 2);
@@ -127,18 +114,6 @@ class BetterAngelsPlugin {
                     $post_id,
                     __FUNCTION__ . '()'
                 ));
-            }
-        }
-    }
-
-    public function showAdminNotices () {
-        foreach ($this->Error->get_error_codes() as $err_code) {
-            foreach ($this->Error->get_error_messages($err_code) as $err_msg) {
-                $class = 'notice is-dismissible';
-                if ($err_data = $this->Error->get_error_data($err_code)) {
-                    $class .= " $err_data";
-                }
-                print '<div class="' . esc_attr($class) . '"><p>' . nl2br(esc_html($err_msg)) . '</p></div>';
             }
         }
     }
@@ -246,11 +221,6 @@ class BetterAngelsPlugin {
         return false;
     }
 
-    private function getUserGenderPronoun ($user_id) {
-        $pronoun = get_user_meta($user_id, $this->prefix . 'pronoun', true);
-        return (empty($pronoun)) ? 'their' : $pronoun;
-    }
-
     /**
      * Adds a user as a guardian for another user.
      *
@@ -350,121 +320,12 @@ class BetterAngelsPlugin {
             }
         }
 
-        // Anything to delete?
-        // Delete before adding!
-        $all_my_guardians = array_map(
-            'get_userdata', get_user_meta($user_id, $this->prefix . 'guardians')
-        );
-
-        if (!empty($request[$this->prefix . 'my_guardians'])) {
-            foreach ($all_my_guardians as $guard) {
-                if (!in_array($guard->ID, $request[$this->prefix . 'my_guardians'])) {
-                    $this->removeGuardian($guard->ID, $user_id);
-                }
-            }
-        } else { // delete all guardians
-            delete_user_meta($user_id, $this->prefix . 'guardians');
-            foreach ($all_my_guardians as $guard) {
-                delete_user_meta($user_id, $this->prefix . 'guardian_' . $guard->ID . '_info');
-            }
-        }
-
         // Anything to add?
         if (!empty($request[$this->prefix . 'add_guardian'])) {
             $ginfo = (isset($request[$this->prefix . 'is_fake_guardian']))
                 ? array('receive_alerts' => false) : array('receive_alerts' => true);
             $guardian_id = username_exists($request[$this->prefix . 'add_guardian']);
-            // add the user if a valid username was entered
-            if ($guardian_id) {
-                $this->setupGuardian($guardian_id, $user_id, $ginfo);
-            } else if (is_email($request[$this->prefix . 'add_guardian'])) {
-                $user = get_user_by('email', $request[$this->prefix . 'add_guardian']);
-                if ($user) {
-                    $this->setupGuardian($user->ID, $user_id, $ginfo);
-                } else {
-                    $subject = sprintf(
-                        __('%1$s invites you to join the Buoy emergency response alternative on %2$s!', 'better-angels'),
-                        $wp_user->display_name,
-                        get_bloginfo('name')
-                    );
-                    $msg = __('Buoy is a community-driven emergency dispatch and response technology. It is designed to connect people in crisis with trusted friends, family, and other nearby allies who can help. We believe that in situations where traditional emergency services are not available, reliable, trustworthy, or sufficient, communities can come together to aid each other in times of need.', 'better-angels');
-                    $msg .= "\n\n";
-                    $msg .= sprintf(
-                        __('%1$s wants you to join %2$s crisis response team.', 'better-angels'),
-                        $wp_user->display_name, $this->getUserGenderPronoun($wp_user->ID)
-                    );
-                    $msg .= "\n\n";
-                    $msg .= __('To join, sign up for an account here:', 'better-angels');
-                    $msg .= "\n\n" . wp_registration_url();
-                    wp_mail($request[$this->prefix . 'add_guardian'], $subject, $msg);
-                    $this->Error->add(
-                        'unknown-email',
-                        sprintf(esc_html__('You have invited %s to join this Buoy site, but they are not yet on your response team. Contact them privately (such as by phone or txt) to make sure they created an account. Then come back here and add them again.', 'better-angels'), $request[$this->prefix . 'add_guardian']),
-                        $request[$this->prefix . 'add_guardian']
-                    );
-                }
-            }
         }
-    }
-
-    /**
-     * Sets up a guardian relationship between two users.
-     *
-     * @param int $guardian_id The user ID number of the guardian.
-     * @param int $user_id The user ID number of the user being guarded.
-     * @param array $settings Additional metadata to set for the guardian.
-     * @return void
-     */
-    private function setupGuardian ($guardian_id, $user_id, $settings) {
-        $this->addGuardian($guardian_id, $user_id);
-        $this->setGuardianInfo($guardian_id, $user_id, $settings);
-    }
-
-    public function renderReviewAlertPage () {
-        if (empty($_GET[$this->prefix . 'incident_hash'])) {
-            return;
-        }
-        $alert_post = $this->getAlert($_GET[$this->prefix . 'incident_hash']);
-        if (!current_user_can('read') || !$this->isGuardian(get_current_user_id(), $alert_post->post_author)) {
-            esc_html_e('You do not have sufficient permissions to access this page.', 'better-angels');
-            return;
-        }
-        require_once 'pages/review-alert.php';
-    }
-
-    public function renderChooseAngelsPage () {
-        if (!current_user_can('read')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'better-angels'));
-        }
-
-        if (isset($_POST[$this->prefix . 'nonce'])
-            && wp_verify_nonce($_POST[$this->prefix . 'nonce'], $this->prefix . 'guardians')) {
-            $this->updateChooseAngels($_POST);
-        }
-        require_once 'pages/choose-angels.php';
-    }
-
-    public function renderTeamMembershipPage () {
-        if (!current_user_can('read')) {
-        // TODO: Figure out this cross-user nonce thing.
-        //if (!current_user_can('read') || !wp_verify_nonce($_GET[$this->prefix . 'nonce'], $this->prefix . 'confirm-guardianship')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'better-angels'));
-        }
-
-        // Join one or more teams.
-        if (isset($_POST[$this->prefix . 'nonce']) && wp_verify_nonce($_POST[$this->prefix . 'nonce'], $this->prefix . 'update-teams')) {
-            $join_teams = (empty($_POST[$this->prefix . 'join_teams'])) ? array() : $_POST[$this->prefix . 'join_teams'];
-            foreach ($join_teams as $owner_id) {
-                $this->setGuardianInfo(get_current_user_id(), $owner_id, array('confirmed' => true));
-            }
-
-            // Leave a team.
-            if (!empty($_POST[$this->prefix . 'leave-team'])) {
-                $this->removeGuardian(get_current_user_id(), username_exists($_POST[$this->prefix . 'leave-team']));
-            }
-        }
-
-        require_once 'pages/confirm-guardianship.php';
     }
 
 }

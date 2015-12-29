@@ -26,22 +26,25 @@ class WP_Buoy_Notification extends WP_Buoy_Plugin {
      * @return void
      */
     public static function register () {
-        add_action('publish_' . self::$prefix . '_team', array(__CLASS__, 'inviteMembers'), 10, 2);
-
-        add_action(self::$prefix . '_team_member_added', array(__CLASS__, 'addedToTeam'), 10, 2);
+        add_action('publish_' . self::$prefix . '_team', array(__CLASS__, 'inviteUsers'), 10, 2);
+        add_action(self::$prefix . '_team_member_added', array(__CLASS__, 'addedToTeam'), 10, 3);
         add_action(self::$prefix . '_team_member_removed', array(__CLASS__, 'removedFromTeam'), 10, 2);
+
     }
 
     /**
      * Schedules a notification to be sent to the user.
      *
-     * @param int $user_id
+     * @param int|string $who
      * @param WP_Buoy_Team $team
+     * @param bool $notify Whether or not to schedule a notification.
      *
      * @return void
      */
-    public static function addedToTeam ($user_id, $team) {
-        add_post_meta($team->wp_post->ID, '_' . self::$prefix . '_notify', $user_id, false);
+    public static function addedToTeam ($who, $team, $notify = true) {
+        if ($notify) {
+            add_post_meta($team->wp_post->ID, '_' . self::$prefix . '_notify', $who, false);
+        }
 
         // Call the equivalent of the "status_type" hook since adding
         // a member may have happened after publishing the post itself.
@@ -71,24 +74,55 @@ class WP_Buoy_Notification extends WP_Buoy_Plugin {
      * @param int $post_id
      * @param WP_Post $post
      */
-    public static function inviteMembers ($post_id, $post) {
+    public static function inviteUsers ($post_id, $post) {
         $team      = new WP_Buoy_Team($post_id);
         $buoy_user = new WP_Buoy_User($post->post_author);
+
         $to_notify = array_unique(get_post_meta($post_id, '_' . self::$prefix . '_notify'));
+
+        foreach ($to_notify as $x) {
+            if (is_email($x)) {
+                self::inviteNewUser($team, $x);
+            } else {
+                // TODO: Write a better message.
+                $subject = sprintf(
+                    __('%1$s wants you to join %2$s crisis response team.', 'buoy'),
+                    $buoy_user->wp_user->display_name, $buoy_user->get_pronoun()
+                );
+                $msg = admin_url(
+                    'edit.php?post_type=' . $team->wp_post->post_type . '&page=' . self::$prefix . '_team_membership'
+                );
+                $user = get_userdata($x);
+                wp_mail($user->user_email, $subject, $msg);
+            }
+            delete_post_meta($post_id, '_' . self::$prefix . '_notify', $x);
+        }
+    }
+
+    /**
+     * Sends an email inviting a new user to join this Buoy.
+     *
+     * @param WP_Buoy_Team $team
+     * @param string $email
+     *
+     * @return void
+     */
+    public static function inviteNewUser ($team, $email) {
+        $buoy_user = new WP_Buoy_User($team->wp_post->post_author);
         $subject = sprintf(
+            __('%1$s invites you to join the Buoy emergency response alternative on %2$s!', 'buoy'),
+            $buoy_user->wp_user->display_name, get_bloginfo('name')
+        );
+        $msg = __('Buoy is a community-based crisis response system. It is designed to connect people in need with trusted friends, family, and other nearby allies who can help. We believe that in situations where traditional emergency services are not available, reliable, trustworthy, or sufficient, communities can come together to aid each other in times of need.', 'buoy');
+        $msg .= "\n\n";
+        $msg .= sprintf(
             __('%1$s wants you to join %2$s crisis response team.', 'buoy'),
             $buoy_user->wp_user->display_name, $buoy_user->get_pronoun()
         );
-        foreach ($to_notify as $user_id) {
-            // TODO: Write a better message.
-            $msg = admin_url(
-                'edit.php?post_type=' . $team->wp_post->post_type . '&page=' . self::$prefix . '_team_membership'
-            );
-            $user = get_userdata($user_id);
-            wp_mail($user->user_email, $subject, $msg);
-
-            delete_post_meta($post_id, '_' . self::$prefix . '_notify', $user_id);
-        }
+        $msg .= "\n\n";
+        $msg .= __('To join, sign up for an account here:', 'buoy');
+        $msg .= "\n\n" . wp_registration_url();
+        wp_mail($email, $subject, $msg);
     }
 
     /**
