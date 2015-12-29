@@ -26,8 +26,6 @@ class BetterAngelsPlugin {
     public function __construct () {
         $this->Error = new WP_Error();
 
-        add_action('admin_init', array($this, 'configureCron'));
-
         add_action('admin_enqueue_scripts', array($this, 'enqueueAdminScripts'));
         add_action('admin_head-dashboard_page_' . $this->prefix . 'activate-alert', array($this, 'doAdminHeadActivateAlert'));
         add_action('admin_notices', array($this, 'showAdminNotices'));
@@ -131,46 +129,6 @@ class BetterAngelsPlugin {
                     $post_id,
                     __FUNCTION__ . '()'
                 ));
-            }
-        }
-    }
-
-    public function configureCron () {
-        $options = get_option($this->prefix . 'settings');
-        $path_to_wp_cron = ABSPATH . 'wp-cron.php';
-        $os_cronjob_comment = '# Buoy WordPress Plugin Cronjob';
-        require_once plugin_dir_path(__FILE__) . 'includes/crontab-manager.php';
-        $C = new BuoyCrontabManager();
-        $os_cron = false;
-        foreach ($C->getCron() as $line) {
-            if (strpos($line, $path_to_wp_cron)) {
-                $os_cron = true;
-                break;
-            }
-        }
-        if (empty($options['future_alerts']) && $os_cron) {
-            try {
-                $C->removeCronJobs("/$os_cronjob_comment/");
-            } catch (Exception $e) {
-                $this->Error->add(
-                    'crontab-remove-jobs',
-                    __('Error removing system crontab jobs for timed alerts.', 'better-angels')
-                    . PHP_EOL . $e->getMessage(),
-                    'error'
-                );
-            }
-        } else if (!empty($options['future_alerts']) && !$os_cron) {
-            // TODO: Variablize the frequency
-            $job = '*/5 * * * * php ' . $path_to_wp_cron . ' >/dev/null 2>&1 ' . $os_cronjob_comment;
-            try {
-                $C->appendCronJobs($job)->save();
-            } catch (Exception $e) {
-                $this->Error->add(
-                    'crontab-add-jobs',
-                    __('Error installing system cronjob for timed alerts.', 'better-angels')
-                    . PHP_EOL . $e->getMessage(),
-                    'error'
-                );
             }
         }
     }

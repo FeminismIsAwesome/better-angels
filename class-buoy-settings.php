@@ -96,6 +96,7 @@ class WP_Buoy_Settings {
      * @return void
      */
     public static function register () {
+        add_action('admin_init', array(__CLASS__, 'configureCron'));
         add_action('admin_init', array(__CLASS__, 'registerSettings'));
         add_action('admin_menu', array(__CLASS__, 'registerAdminMenu'));
     }
@@ -163,6 +164,45 @@ class WP_Buoy_Settings {
             WP_Buoy_Plugin::$prefix . '_settings',
             array(__CLASS__, 'validateSettings')
         );
+    }
+
+    /**
+     * Writes or removes the plugin's cron jobs in the OS-level cron.
+     *
+     * @return void
+     */
+    public static function configureCron () {
+        require_once plugin_dir_path(__FILE__) . 'includes/crontab-manager.php';
+
+        $C = new Buoy_Crontab_Manager();
+        $path_to_wp_cron = ABSPATH . 'wp-cron.php';
+        $os_cronjob_comment = '# Buoy WordPress Plugin Cronjob';
+        $job = '*/5 * * * * php ' . $path_to_wp_cron . ' >/dev/null 2>&1 ' . $os_cronjob_comment;
+
+        $options = self::get_instance();
+        if ($options->get('future_alerts')) {
+            if (!$C->jobExists($path_to_wp_cron)) {
+                try {
+                    $C->appendCronJobs($job)->save();
+                } catch (Exception $e) {
+                    error_log(
+                        __('Error installing system cronjob for timed alerts.', 'buoy')
+                        . PHP_EOL . $e->getMessage()
+                    );
+                }
+            }
+        } else {
+            if ($C->jobExists($path_to_wp_cron)) {
+                try {
+                    $C->removeCronJobs("/$os_cronjob_comment/")->save();
+                } catch (Exception $e) {
+                    error_log(
+                        __('Error removing system crontab jobs for timed alerts.', 'buoy')
+                        . PHP_EOL . $e->getMessage()
+                    );
+                }
+            }
+        }
     }
 
     /**

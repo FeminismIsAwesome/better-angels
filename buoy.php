@@ -19,7 +19,7 @@
  *
  * @license https://www.gnu.org/licenses/gpl-3.0.en.html
  *
- * @author maymay <bitetheappleback@gmail.com>
+ * @copyright Copyright (c) 2015-2016 by Meitar "maymay" Moscovitz
  *
  * @package WordPress\Plugin\WP_Buoy_Plugin
  */
