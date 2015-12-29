@@ -26,8 +26,6 @@ class BetterAngelsPlugin {
     public function __construct () {
         $this->Error = new WP_Error();
 
-        add_action('admin_enqueue_scripts', array($this, 'enqueueAdminScripts'));
-        add_action('admin_head-dashboard_page_' . $this->prefix . 'activate-alert', array($this, 'doAdminHeadActivateAlert'));
         add_action('admin_notices', array($this, 'showAdminNotices'));
 
         add_action('wp_ajax_' . $this->prefix . 'upload-media', array($this, 'handleMediaUpload'));
@@ -133,22 +131,6 @@ class BetterAngelsPlugin {
         }
     }
 
-    /**
-     * The "activate alert" screen is intended to be the web app "install"
-     * screen for Buoy. We insert special mobile browser specific tags in
-     * order to create a native-like "installer" for the user. We only want
-     * to do this on this specific screen.
-     */
-    public function doAdminHeadActivateAlert () {
-        print '<meta name="mobile-web-app-capable" content="yes" />';       // Android/Chrome
-        print '<meta name="apple-mobile-web-app-capable" content="yes" />'; // Apple/Safari
-        print '<meta name="apple-mobile-web-app-status-bar-style" content="black" />';
-        print '<meta name="apple-mobile-web-app-title" content="' . esc_attr('Buoy', 'better-angels') . '" />';
-        print '<link rel="apple-touch-icon" href="' . plugins_url('img/apple-touch-icon-152x152.png', __FILE__) . '" />';
-        // TODO: This isn't showing up, figure out why.
-        //print '<link rel="apple-touch-startup-image" href="' . plugins_url('img/apple-touch-startup.png', __FILE__) . '">';
-    }
-
     public function showAdminNotices () {
         foreach ($this->Error->get_error_codes() as $err_code) {
             foreach ($this->Error->get_error_messages($err_code) as $err_msg) {
@@ -159,51 +141,6 @@ class BetterAngelsPlugin {
                 print '<div class="' . esc_attr($class) . '"><p>' . nl2br(esc_html($err_msg)) . '</p></div>';
             }
         }
-    }
-
-    public function enqueueAdminScripts ($hook) {
-        // Always enqueue this script to ensure iOS Webapp-style launches
-        // remain within the webapp capable shell. Otherwise, navigating
-        // to a page outside "our app" (like the WP profile page) will make
-        // any subsequent navigation return to the built-in iOS Mobile Safari
-        // browser, which is a confusing user experience for a user who has
-        // "installed" Buoy.
-        wp_enqueue_script(
-            $this->prefix . 'stay-standalone',
-            plugins_url('includes/stay-standalone.js', __FILE__)
-        );
-
-        $to_hook = array( // list of pages where Bootstrap CSS+JS, certain jQuery is needed
-            'dashboard_page_' . $this->prefix . 'activate-alert',
-            'dashboard_page_' . $this->prefix . 'incident-chat'
-        );
-    }
-
-    /**
-     * Checks to see if the current page, called by a WordPress hook,
-     * is one of the "app pages" where important functionality provided
-     * by this plugin occurrs. Used to check whether or not to enqueue
-     * certain additional, heavyweight assets, like BootstrapCSS.
-     *
-     * @param string $hook The hook name that called this page. (Set by WordPress.)
-     * @param array $matches Optional list of hook names that should be matched against, useful for checking against a single hook.
-     * @return bool True if the page is "one of ours," false otherwise.
-     */
-    private function isAppPage ($hook, $matches = array()) {
-        $our_hooks = array(
-            'dashboard_page_' . $this->prefix . 'activate-alert',
-            'dashboard_page_' . $this->prefix . 'incident-chat',
-            'dashboard_page_' . $this->prefix . 'review-chat',
-        );
-
-        if (0 < count($matches)) { $our_hooks = $matches; }
-
-        foreach ($our_hooks as $the_hook) {
-            if ($the_hook === $hook) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**

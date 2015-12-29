@@ -71,6 +71,7 @@ class WP_Buoy_Plugin {
         add_action('init', array(__CLASS__, 'initialize'));
         add_action('admin_enqueue_scripts', array(__CLASS__, 'enqueueFrontEndScripts'));
         add_action('admin_head', array(__CLASS__, 'addHelpSidebar'));
+        add_action('admin_head-dashboard_page_' . self::$prefix . '_activate_alert', array(__CLASS__, 'renderWebAppHTML'));
 
         register_activation_hook(__FILE__, array(__CLASS__, 'activate'));
         register_deactivation_hook(__FILE__, array(__CLASS__, 'deactivate'));
@@ -194,7 +195,20 @@ class WP_Buoy_Plugin {
         wp_enqueue_style(
             self::$prefix . '-style',
             plugins_url(self::$prefix . '.css', __FILE__),
-            false,
+            array(),
+            $plugin_data['Version']
+        );
+
+        // Always enqueue this script to ensure iOS Webapp-style launches
+        // remain within the webapp capable shell. Otherwise, navigating
+        // to a page outside "our app" (like the WP profile page) will make
+        // any subsequent navigation return to the built-in iOS Mobile Safari
+        // browser, which is a confusing user experience for a user who has
+        // "installed" Buoy.
+        wp_enqueue_script(
+            self::$prefix . '-stay-standalone',
+            plugins_url('includes/stay-standalone.js', __FILE__),
+            array(),
             $plugin_data['Version']
         );
     }
@@ -225,6 +239,27 @@ class WP_Buoy_Plugin {
         $help = new WP_Screen_Help_Loader(plugin_dir_path(__FILE__) . 'help');
         $help->applySidebar();
     }
+
+    /**
+     * Prints meta tag indicators for native-like functionality.
+     *
+     * The "activate alert" screen is intended to be the web app "install"
+     * screen for Buoy. We insert special mobile browser specific tags in
+     * order to create a native-like "installer" for the user. We only want
+     * to do this on this specific screen.
+     *
+     * @return void
+     */
+    public static function renderWebAppHTML () {
+        print '<meta name="mobile-web-app-capable" content="yes" />';       // Android/Chrome
+        print '<meta name="apple-mobile-web-app-capable" content="yes" />'; // Apple/Safari
+        print '<meta name="apple-mobile-web-app-status-bar-style" content="black" />';
+        print '<meta name="apple-mobile-web-app-title" content="' . esc_attr('Buoy', 'buoy') . '" />';
+        print '<link rel="apple-touch-icon" href="' . plugins_url('img/apple-touch-icon-152x152.png', __FILE__) . '" />';
+        // TODO: This isn't showing up, figure out why.
+        //print '<link rel="apple-touch-startup-image" href="' . plugins_url('img/apple-touch-startup.png', __FILE__) . '">';
+    }
+
 
     /**
      * Prepares an error message for logging.
