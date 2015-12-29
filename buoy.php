@@ -121,6 +121,21 @@ class WP_Buoy_Plugin {
      * Method to run when the plugin is activated by a user in the
      * WordPress Dashboard admin screen.
      *
+     * @uses WP_Buoy_Plugin::checkPrereqs()
+     * @uses WP_Buoy_Settings::activate()
+     *
+     * @return void
+     */
+    public static function activate () {
+        self::checkPrereqs();
+
+        require_once 'class-buoy-settings.php';
+        WP_Buoy_Settings::get_instance()->activate();
+    }
+
+    /**
+     * Checks system requirements and exits if they are not met.
+     *
      * This first checks to ensure minimum WordPress and PHP versions
      * have been satisfied. If not, the plugin deactivates and exits.
      *
@@ -131,11 +146,10 @@ class WP_Buoy_Plugin {
      * @uses WP_Buoy_Plugin::get_minimum_wordpress_version()
      * @uses deactivate_plugins()
      * @uses plugin_basename()
-     * @uses WP_Buoy_Settings::activate()
      *
      * @return void
      */
-    public static function activate () {
+    public static function checkPrereqs () {
         global $wp_version;
         $min_wp_version = self::get_minimum_wordpress_version();
 
@@ -153,10 +167,6 @@ class WP_Buoy_Plugin {
                 $min_wp_version, $wp_version
             ));
         }
-
-        require_once 'class-buoy-settings.php';
-        $options = WP_Buoy_Settings::get_instance();
-        $options->activate();
     }
 
     /**
@@ -179,8 +189,13 @@ class WP_Buoy_Plugin {
     /**
      * Method to run when the plugin is deactivated by a user in the
      * WordPress Dashboard admin screen.
+     *
+     * @uses WP_Buoy_Settings::deactivate()
+     *
+     * @return void
      */
     public static function deactivate () {
+        WP_Buoy_Settings::get_instance()->deactivate();
     }
 
     /**

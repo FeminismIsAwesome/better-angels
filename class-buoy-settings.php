@@ -90,6 +90,146 @@ class WP_Buoy_Settings {
             if (!$this->has($k)) { $this->set($k, $v); }
         }
         $this->save();
+        $this->updateSchedules(
+            '',
+            self::get_alert_ttl_string($this->get('alert_ttl_num'), $this->get('alert_ttl_multiplier'))
+        );
+    }
+
+    /**
+     * Turns Buoy functionality off for this site.
+     *
+     * @return void
+     */
+    public static function deactivate () {
+        $options = self::get_instance();
+        do_action(WP_Buoy_Plugin::$prefix . '_delete_old_alerts');
+        wp_clear_scheduled_hook(WP_Buoy_Plugin::$prefix . '_delete_old_alerts');       // clear hook with no args
+        wp_clear_scheduled_hook(WP_Buoy_Plugin::$prefix . '_delete_old_alerts', array( // and also with explicit args
+            self::get_alert_ttl_string($options->get('alert_ttl_num'), $options->get('alert_ttl_multiplier'))
+        ));
+    }
+
+    /**
+     * Gets an alert time-to-live string.
+     *
+     * This is used to create a `strtotime()`-compatible string from
+     * the plugin's settings.
+     *
+     * @param int $num
+     * @param int $multiplier
+     * @param bool $past
+     *
+     * @return string
+     */
+    private static function get_alert_ttl_string ($num, $multiplier, $past = true) {
+        $str = intval($num) . ' ' . self::time_multiplier_to_unit($multiplier);
+        return ($past) ? '-' . $str : $str;
+    }
+
+    /**
+     * Converts a number of seconds to that value's English time unit.
+     *
+     * @uses HOUR_IN_SECONDS
+     * @uses WEEK_IN_SECONDS
+     * @uses DAY_IN_SECONDS
+     *
+     * @param int $num
+     *
+     * @return string
+     */
+    private static function time_multiplier_to_unit ($num) {
+        switch ($num) {
+            case HOUR_IN_SECONDS:
+                return 'hours';
+            case WEEK_IN_SECONDS:
+                return 'weeks';
+            case DAY_IN_SECONDS:
+            default:
+                return 'days';
+        }
+    }
+
+    /**
+     * Resets WP-Cron scheduled tasks.
+     *
+     * @uses wp_next_scheduled()
+     * @uses wp_clear_scheduled_hook()
+     * @uses wp_schedule_event()
+     *
+     * @param string $old_str
+     * @param string $new_str
+     *
+     * @return void
+     */
+    private function updateSchedules ($old_str, $new_str) {
+        if (wp_next_scheduled(WP_Buoy_Plugin::$prefix . '_delete_old_alerts', array($old_str))) {
+            wp_clear_scheduled_hook(WP_Buoy_Plugin::$prefix . '_delete_old_alerts', array($old_str));
+        }
+        wp_schedule_event(
+            time() + HOUR_IN_SECONDS,
+            'hourly',
+            WP_Buoy_Plugin::$prefix . '_delete_old_alerts',
+            array($new_str)
+        );
+    }
+
+    /**
+     * Deletes alerts older than a certain threshold.
+     *
+     * Also deletes their child posts (media attachments) if that
+     * option is enabled.
+     *
+     * @todo Should this actually be part of the Alert class?
+     *
+     * @param string $threshold A `strtotime()`-compatible string indicating some time in the past.
+     *
+     * @return void
+     */
+    public static function deleteOldAlerts ($threshold) {
+        $options = self::get_instance();
+        $threshold = empty($threshold)
+            ? self::get_alert_ttl_string($options->get('alert_ttl_num'), $options->get('alert_ttl_multiplier'))
+            : $threshold;
+        $wp_query_args = array(
+            'post_type' => WP_Buoy_Plugin::$prefix . '_alert',
+            'posts_per_page' => -1,
+            'date_query' => array(
+                'column' => 'post_date',
+                'before' => $threshold,
+                'inclusive' => true
+            ),
+            'fields' => 'ids'
+        );
+        $query = new WP_Query($wp_query_args);
+        foreach ($query->posts as $post_id) {
+            $attached_posts_by_type = array();
+            $types = array('image', 'audio', 'video');
+            if (!empty($options->get('delete_old_incident_media'))) {
+                foreach ($types as $type) {
+                    $attached_posts_by_type[$type] = get_attached_media($type, $post_id);
+                }
+                foreach ($attached_posts_by_type as $type => $posts) {
+                    foreach ($posts as $post) {
+                        if (!wp_delete_post($post->ID, true)) {
+                            error_log(sprintf(
+                                __('Failed to delete attachment post %1$s (child of %2$s) during %3$s', 'buoy'),
+                                $post->ID,
+                                $post_id,
+                                __FUNCTION__ . '()'
+                            ));
+                        }
+                    }
+                }
+            }
+            if (!wp_delete_post($post_id, true)) {
+                error_log(sprintf(
+                    __('Failed to delete post with ID %1$s during %2$s', 'buoy'),
+                    $post_id,
+                    __FUNCTION__ . '()'
+                ));
+            }
+        }
     }
 
     /**
@@ -99,6 +239,27 @@ class WP_Buoy_Settings {
         add_action('admin_init', array(__CLASS__, 'configureCron'));
         add_action('admin_init', array(__CLASS__, 'registerSettings'));
         add_action('admin_menu', array(__CLASS__, 'registerAdminMenu'));
+
+        add_action(WP_Buoy_Plugin::$prefix . '_delete_old_alerts', array(__CLASS__, 'deleteOldAlerts'));
+
+        add_action('update_option_' . WP_Buoy_Plugin::$prefix . '_settings', array(__CLASS__, 'updatedsettings'), 10, 2);
+    }
+
+    /**
+     * Updates WordPress settings based on changed plugin settings.
+     *
+     * @link https://developer.wordpress.org/reference/hooks/update_option_option/
+     *
+     * @param array $old_value
+     * @param array $new
+     *
+     * @return void
+     */
+    public static function updatedSettings ($old_value, $value) {
+        self::get_instance()->updateSchedules(
+            self::get_alert_ttl_string($old_value['alert_ttl_num'], $old_value['alert_ttl_multiplier']),
+            self::get_alert_ttl_string($value['alert_ttl_num'], $value['alert_ttl_multiplier'])
+        );
     }
 
     /**
