@@ -5,3 +5,10 @@
     background: gray;
     border-radius: 5px;
 }
+
+#current-team .confirmed {
+    font-weight: bold;
+    padding-bottom: 1em;
+    border-bottom: 1px solid #E5E5E5;
+    margin-bottom: 1em;
+}

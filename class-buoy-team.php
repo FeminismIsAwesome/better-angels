@@ -66,6 +66,39 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     }
 
     /**
+     * Gets team member IDs by state.
+     *
+     * For the "invited" state, an ID is an email address.
+     *
+     * @param array $states Defaults to `array('confirmed', 'unconfirmed', 'invited')`.
+     *
+     * @return array[]|WP_Error 2D array of state => IDs
+     */
+    public function get_members_in_states ($states = array()) {
+        $defaults = array('confirmed', 'unconfirmed', 'invited');
+        $states = wp_parse_args($states, $defaults);
+        $ret = array();
+        foreach ($states as $state) {
+            switch ($state) {
+                case 'confirmed':
+                case 'unconfirmed':
+                case 'invited':
+                    $func = "get_{$state}_members";
+                    $ret[$state] = $this->$func();
+                    break;
+                default:
+                    return new WP_Error(
+                        'no-such-state',
+                        __('Invalid state for membership.', 'buoy'),
+                        $state
+                    );
+                    break;
+            }
+        }
+        return $ret;
+    }
+
+    /**
      * Checks whether or not this team is the user's default team.
      *
      * @uses WP_Buoy_User_Settings::get()
@@ -108,7 +141,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      *
      * @return string[]
      */
-    public function get_invited_users () {
+    public function get_invited_members () {
         return array_unique(get_post_meta($this->wp_post->ID, '_invitees'));
     }
 
@@ -271,6 +304,24 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
     }
 
     /**
+     * Gets the unconfirmed members of this team.
+     *
+     * @uses WP_Buoy_Team::get_member_ids()
+     * @uses WP_Buoy_Team::is_confirmed()
+     *
+     * @return int[]
+     */
+    public function get_unconfirmed_members () {
+        $responders = array();
+        foreach ($this->get_member_ids() as $id) {
+            if (!$this->is_confirmed($id)) {
+                $responders[] = $id;
+            }
+        }
+        return $responders;
+    }
+
+    /**
      * @return void
      */
     public static function register () {
@@ -359,7 +410,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
             'current-team',
             sprintf(
                 esc_html__('Current team members %s', 'buoy'),
-                '<span class="count">(' . count($team->members) . ')</span>'
+                '<span class="count">(' . count($team->get_confirmed_members()) . ')</span>'
             ),
             array(__CLASS__, 'renderCurrentTeamMetaBox'),
             null,
@@ -900,7 +951,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         $team_posts = self::getAllTeamPosts();
         foreach ($team_posts as $post) {
             $team = new WP_Buoy_Team($post->ID);
-            if (in_array($user->user_email, $team->get_invited_users())) {
+            if (in_array($user->user_email, $team->get_invited_members())) {
                 $team->remove_member($user->user_email); // removes the invitation
                 $team->add_member($user_id, false);      // then adds the user
             }
