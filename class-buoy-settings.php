@@ -67,6 +67,10 @@ class WP_Buoy_Settings {
     }
 
     /**
+     * Gets the plugin options from the WordPress database.
+     *
+     * @uses get_option()
+     *
      * @return mixed
      */
     private function get_options () {
@@ -81,7 +85,8 @@ class WP_Buoy_Settings {
      * Saves default plugin options to the database when the plugin
      * is activated by a user without overwriting existing values.
      * 
-     * @used-by WP_Buoy_Plugin::activate()
+     * @uses WP_Buoy_Settings::save()
+     * @uses WP_Buoy_Settings::updateSchedules()
      *
      * @return void
      */
@@ -98,6 +103,8 @@ class WP_Buoy_Settings {
 
     /**
      * Turns Buoy functionality off for this site.
+     *
+     * @uses wp_clear_scheduled_hook()
      *
      * @return void
      */

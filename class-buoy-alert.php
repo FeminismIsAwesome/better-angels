@@ -704,7 +704,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
      * @uses wp_verify_nonce()
      * @uses get_current_user_id()
      * @uses WP_Buoy_Alert::add_responder()
-     * @uses WP_Buoy_Alert::add_responder_geo()
+     * @uses WP_Buoy_Alert::set_responder_geo()
      *
      * @return void
      */
