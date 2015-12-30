@@ -317,9 +317,9 @@ var BUOY = (function () {
                 jQuery(this).next().click();
             });
             jQuery('#upload-media-btn').next().on('change', function (e) {
-                var upload_url = ajaxurl + '?action=buoy_upload-media';
+                var upload_url = ajaxurl + '?action=buoy_upload_media';
                 upload_url    += '&buoy_nonce=' + buoy_vars.incident_nonce;
-                upload_url    += '&buoy_incident_hash=' + jQuery('#map-container').data('incident-hash');
+                upload_url    += '&buoy_hash=' + jQuery('#map-container').data('incident-hash');
                 var file_list = this.files;
                 for (var i = 0; i < file_list.length; i++) {
                     var fd = new FormData();

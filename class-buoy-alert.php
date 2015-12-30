@@ -471,6 +471,7 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
         add_action('admin_menu', array(__CLASS__, 'registerAdminMenu'));
 
         add_action('wp_ajax_' . self::$prefix . '_new_alert', array(__CLASS__, 'handleNewAlert'));
+        add_action('wp_ajax_' . self::$prefix . '_upload_media', array(__CLASS__, 'handleMediaUpload'));
         add_action('wp_ajax_' . self::$prefix . '_unschedule_alert', array(__CLASS__, 'handleUnscheduleAlert'));
         add_action('wp_ajax_' . self::$prefix . '_update_location', array(__CLASS__, 'handleLocationUpdate'));
         add_action('wp_ajax_' . self::$prefix . '_dismiss_installer', array(__CLASS__, 'handleDismissInstaller'));
@@ -1012,6 +1013,54 @@ class WP_Buoy_Alert extends WP_Buoy_Plugin {
                 wp_safe_redirect(html_entity_decode($next_url));
                 exit();
             }
+        }
+    }
+
+    /**
+     * Adds a media file as an attachment to the incident post.
+     *
+     * @link https://developer.wordpress.org/reference/hooks/wp_ajax__requestaction/
+     *
+     * @global $_GET
+     * @global $_FILES
+     *
+     * @return void
+     */
+    public static function handleMediaUpload () {
+        check_ajax_referer(self::$prefix . '_incident_nonce', self::$prefix . '_nonce');
+
+        $alert = new self($_GET[self::$prefix . '_hash']);
+        $keys = array_keys($_FILES);
+        $k  = array_shift($keys);
+        $id = media_handle_upload($k, $alert->wp_post->ID);
+        $m = wp_get_attachment_metadata($id);
+        if (is_wp_error($id)) {
+            wp_send_json_error($id);
+        } else {
+            $mime_type = null;
+            if (isset($m['mime_type'])) {
+                $mime_type = $m['mime_type'];
+            } else if (isset($m['image_meta'])) {
+                $mime_type = 'image/*';
+                if (isset($m['sizes'])) {
+                    foreach ($m['sizes'] as $size) {
+                        if (isset($size['mime-type'])) {
+                            $mime_type = $m['sizes']['thumbnail']['mime-type'];
+                            break;
+                        }
+                    }
+                }
+            } else {
+                $mime_type = 'audio/*';
+            }
+            $media_type = substr($mime_type, 0, strpos($mime_type, '/'));
+            $html = self::getIncidentMediaHtml($media_type, $id);
+            $resp = array(
+                'id' => $id,
+                'media_type' => ('application' === $media_type) ? 'audio' : $media_type,
+                'html' => $html
+            );
+            wp_send_json_success($resp);
         }
     }
 
