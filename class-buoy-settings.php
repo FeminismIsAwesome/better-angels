@@ -212,7 +212,8 @@ class WP_Buoy_Settings {
         foreach ($query->posts as $post_id) {
             $attached_posts_by_type = array();
             $types = array('image', 'audio', 'video');
-            if (!empty($options->get('delete_old_incident_media'))) {
+            $delete_media = $options->get('delete_old_incident_media');
+            if (!empty($delete_media)) {
                 foreach ($types as $type) {
                     $attached_posts_by_type[$type] = get_attached_media($type, $post_id);
                 }

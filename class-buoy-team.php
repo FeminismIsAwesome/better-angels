@@ -718,7 +718,8 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
      * @param WP_Buoy_Team The team they left.
      */
     public static function checkMemberCount ($user_id, $team) {
-        if (empty($team->get_member_ids())) {
+        $ids = $team->get_member_ids();
+        if (empty($ids)) {
             /**
              * Fires after the last member of a team is removed (or leaves).
              *

@@ -284,9 +284,10 @@ class WP_Buoy_Plugin {
      * @return string
      */
     private static function error_msg ($message) {
+        $dbt = debug_backtrace();
         // the "2" is so we get the name of the function that originally called debug_log()
         // This works so long as error_msg() is always called by debug_log()
-        return '[' . get_called_class() . '::' . debug_backtrace()[2]['function'] . '()]: ' . $message;
+        return '[' . get_called_class() . '::' . $dbt[2]['function'] . '()]: ' . $message;
     }
 
     /**
