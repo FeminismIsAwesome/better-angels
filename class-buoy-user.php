@@ -314,7 +314,7 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
             <thead>
                 <tr>
                     <th></th>
-                    <th><?php esc_html_e('Team name', 'buoy');?></th>
+                    <th><?php esc_html_e('Team', 'buoy');?></th>
                     <th><?php esc_html_e('Responders', 'buoy');?></th>
                 </tr>
             </thead>
@@ -331,7 +331,14 @@ class WP_Buoy_User extends WP_Buoy_Plugin {
                     </td>
                     <td>
                         <label for="<?php print esc_attr(self::$prefix);?>_team-<?php print esc_attr($team_id);?>">
-                            <?php print esc_html($team->wp_post->post_title);?>
+                            <div class="media">
+                                <div class="media-left">
+                                    <?php if (has_post_thumbnail($team_id)) { print get_the_post_thumbnail($team_id, array(60, 60)); }?>
+                                </div>
+                                <div class="media-body">
+                                    <?php print esc_html($team->wp_post->post_title);?>
+                                </div>
+                            </div>
                         </label>
                     </td>
                     <td>

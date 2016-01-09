@@ -354,7 +354,8 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
             'hierarchical' => false,
             'supports' => array(
                 'title',
-                'author'
+                'author',
+                'thumbnail'
             ),
             'register_meta_box_cb' => array(__CLASS__, 'registerMetaBoxes'),
             'has_archive' => false,
@@ -813,6 +814,7 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
         $post_columns['num_members']       = __('Members', 'buoy');
         $post_columns['confirmed_members'] = __('Confirmed Members', 'buoy');
         $post_columns['default_team']      = __('Default Team?', 'buoy');
+        $post_columns['featured_image']      = __('Team image', 'buoy');
         return $post_columns;
     }
 
@@ -904,6 +906,20 @@ class WP_Buoy_Team extends WP_Buoy_Plugin {
             case 'default_team':
                 if ($team->is_default()) {
                     print '<strong>' . esc_html__('Yes', 'buoy') . '</strong>';
+                }
+                break;
+            case 'featured_image':
+                // TODO: There is an existing plugin that, basically,
+                //       does the same thing as what we're doing here
+                //       but in a more feature-rich way. It's called:
+                // https://wordpress.org/plugins/featured-image-admin-thumb-fiat/
+                //       Perhaps there's some way to contribute to it
+                //       and then simply use that plugin to support a
+                //       "thumbnail" column if it's running on a site?
+                if (has_post_thumbnail($post_id)) {
+                    print get_the_post_thumbnail($post_id, 'thumb');
+                } else {
+                    esc_html_e('None', 'buoy');
                 }
                 break;
         }
